@@ -52,6 +52,21 @@ touch Neon.
 - `npm run db:migrate` refuses to touch a remote database unless `ALLOW_REMOTE_MIGRATIONS=true`
   is set for that run. Use a Neon **development branch**, never the main branch.
 
+## Signing in locally
+
+Sign-in is by phone and a one-time code. In development, `SMS_PROVIDER=console` prints the code to
+the terminal running `npm run dev` instead of sending an SMS, for example:
+
+```
+[dev sms → +251 9•• ••• •67] 123456 is your verification code…
+```
+
+To make an admin account, stop the dev server first (the local database is single-process), then run:
+
+```bash
+npm run admin:grant -- 0911234567
+```
+
 ## Secrets
 
 Never commit `.env`. Configuration errors print variable names, never values.

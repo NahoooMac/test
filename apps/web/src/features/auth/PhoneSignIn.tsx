@@ -2,17 +2,26 @@ import { useState, type FormEvent } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight } from 'lucide-react';
-import { normalizeEthiopianPhone } from '@dp/shared';
-import { api, ApiRequestError } from '../../lib/api.ts';
+import { normalizeEthiopianPhone, type OtpChallenge } from '@dp/shared';
+import { api } from '../../lib/api.ts';
 import { Button, Notice, TextField } from '../../ui/index.ts';
+import { authErrorMessage } from './messages.ts';
 
 /**
- * Phone entry step of OTP sign-in. Validates and normalizes on the client for fast feedback;
- * the server normalizes again and is the authority. The OTP step is added in Phase 3.
+ * Phone entry step. Validates and normalizes on the client for fast feedback;
+ * the server normalizes again and is the authority.
  */
-export function PhoneSignIn({ submitSize = 'lg' }: { submitSize?: 'md' | 'lg' }) {
+export function PhoneStep({
+  initialPhone = '',
+  submitSize = 'lg',
+  onSent,
+}: {
+  initialPhone?: string;
+  submitSize?: 'md' | 'lg';
+  onSent: (challenge: OtpChallenge, phoneInput: string) => void;
+}) {
   const { t } = useTranslation();
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(initialPhone);
   const [touched, setTouched] = useState(false);
 
   const result = normalizeEthiopianPhone(phone);
@@ -20,13 +29,14 @@ export function PhoneSignIn({ submitSize = 'lg' }: { submitSize?: 'md' | 'lg' })
 
   const request = useMutation({
     mutationFn: (e164: string) =>
-      api('/auth/otp/request', { method: 'POST', body: { phone: e164 } }),
+      api<OtpChallenge>('/auth/otp/request', { method: 'POST', body: { phone: e164 } }),
+    onSuccess: (challenge) => onSent(challenge, phone),
   });
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     setTouched(true);
-    if (result.ok) request.mutate(result.e164);
+    if (result.ok && !request.isPending) request.mutate(result.e164);
   };
 
   return (
@@ -40,18 +50,15 @@ export function PhoneSignIn({ submitSize = 'lg' }: { submitSize?: 'md' | 'lg' })
         placeholder={t('auth.phonePlaceholder')}
         hint={t('auth.phoneHint')}
         value={phone}
-        onChange={(e) => setPhone(e.target.value)}
+        onChange={(e) => {
+          setPhone(e.target.value);
+          if (request.isError) request.reset();
+        }}
         onBlur={() => phone && setTouched(true)}
         error={fieldError}
       />
 
-      {request.isError && (
-        <Notice tone="danger">
-          {request.error instanceof ApiRequestError
-            ? request.error.message
-            : t('errors.genericTitle')}
-        </Notice>
-      )}
+      {request.isError && <Notice tone="danger">{authErrorMessage(t, request.error)}</Notice>}
 
       <div className="flex flex-col gap-3">
         <Button

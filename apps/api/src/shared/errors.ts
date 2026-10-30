@@ -1,16 +1,25 @@
 import type { FastifyError, FastifyInstance } from 'fastify';
+import type { z } from 'zod';
 import type { ApiError } from '@dp/shared';
+
+export interface AppErrorOptions {
+  fields?: Record<string, string>;
+  /** Machine-readable extras for the client, e.g. { retryAfterSec: 60 }. Never secrets. */
+  details?: Record<string, unknown>;
+}
 
 export class AppError extends Error {
   readonly statusCode: number;
   readonly code: string;
   readonly fields: Record<string, string> | undefined;
+  readonly details: Record<string, unknown> | undefined;
 
-  constructor(statusCode: number, code: string, message: string, fields?: Record<string, string>) {
+  constructor(statusCode: number, code: string, message: string, opts: AppErrorOptions = {}) {
     super(message);
     this.statusCode = statusCode;
     this.code = code;
-    this.fields = fields;
+    this.fields = opts.fields;
+    this.details = opts.details;
   }
 }
 
@@ -18,9 +27,32 @@ export const unauthenticated = () =>
   new AppError(401, 'UNAUTHENTICATED', 'You need to sign in to continue.');
 export const forbidden = () =>
   new AppError(403, 'FORBIDDEN', 'You do not have permission to do that.');
+export const tooManyRequests = (retryAfterSec: number) =>
+  new AppError(429, 'TOO_MANY_REQUESTS', 'Too many attempts. Please wait and try again.', {
+    details: { retryAfterSec },
+  });
 
-function body(code: string, message: string, fields?: Record<string, string>): ApiError {
-  return { error: { code, message, ...(fields ? { fields } : {}) } };
+/** Parses a request body with zod; failures become a 400 with per-field messages. */
+export function parseInput<S extends z.ZodType>(schema: S, input: unknown): z.infer<S> {
+  const result = schema.safeParse(input ?? {});
+  if (result.success) return result.data;
+  const fields: Record<string, string> = {};
+  for (const issue of result.error.issues) {
+    const key = issue.path.join('.') || 'body';
+    fields[key] ??= issue.message;
+  }
+  throw new AppError(400, 'VALIDATION_FAILED', 'Some fields are invalid.', { fields });
+}
+
+function body(
+  code: string,
+  message: string,
+  fields?: Record<string, string>,
+  details?: Record<string, unknown>,
+): ApiError {
+  return {
+    error: { code, message, ...(fields ? { fields } : {}), ...(details ? { details } : {}) },
+  };
 }
 
 export function registerErrorHandling(app: FastifyInstance): void {
@@ -32,7 +64,11 @@ export function registerErrorHandling(app: FastifyInstance): void {
 
   app.setErrorHandler((err: FastifyError | AppError, req, reply) => {
     if (err instanceof AppError) {
-      return reply.status(err.statusCode).send(body(err.code, err.message, err.fields));
+      const retryAfter = err.details?.retryAfterSec;
+      if (typeof retryAfter === 'number') reply.header('Retry-After', String(retryAfter));
+      return reply
+        .status(err.statusCode)
+        .send(body(err.code, err.message, err.fields, err.details));
     }
     if (err.validation) {
       const fields: Record<string, string> = {};
@@ -54,4 +90,10 @@ export function registerErrorHandling(app: FastifyInstance): void {
         ),
       );
   });
+}
+
+/** Postgres unique_violation, unwrapped from Drizzle's error wrapper if needed. */
+export function isUniqueViolation(err: unknown): boolean {
+  const e = err as { code?: string; cause?: { code?: string } } | null;
+  return e?.code === '23505' || e?.cause?.code === '23505';
 }

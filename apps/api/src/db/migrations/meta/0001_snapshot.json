@@ -281,10 +281,7 @@
       "compositePrimaryKeys": {
         "rate_limit_buckets_key_window_start_pk": {
           "name": "rate_limit_buckets_key_window_start_pk",
-          "columns": [
-            "key",
-            "window_start"
-          ]
+          "columns": ["key", "window_start"]
         }
       },
       "uniqueConstraints": {},
@@ -446,13 +443,9 @@
         "sessions_user_id_users_id_fk": {
           "name": "sessions_user_id_users_id_fk",
           "tableFrom": "sessions",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "users",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -614,13 +607,9 @@
         "sms_messages_challenge_id_otp_challenges_id_fk": {
           "name": "sms_messages_challenge_id_otp_challenges_id_fk",
           "tableFrom": "sms_messages",
-          "columnsFrom": [
-            "challenge_id"
-          ],
+          "columnsFrom": ["challenge_id"],
           "tableTo": "otp_challenges",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "set null"
         }
@@ -736,55 +725,32 @@
     "public.lockout_scope": {
       "name": "lockout_scope",
       "schema": "public",
-      "values": [
-        "phone",
-        "ip"
-      ]
+      "values": ["phone", "ip"]
     },
     "public.otp_close_reason": {
       "name": "otp_close_reason",
       "schema": "public",
-      "values": [
-        "consumed",
-        "expired",
-        "max_attempts",
-        "superseded"
-      ]
+      "values": ["consumed", "expired", "max_attempts", "superseded"]
     },
     "public.otp_purpose": {
       "name": "otp_purpose",
       "schema": "public",
-      "values": [
-        "login"
-      ]
+      "values": ["login"]
     },
     "public.sms_status": {
       "name": "sms_status",
       "schema": "public",
-      "values": [
-        "queued",
-        "sent",
-        "failed",
-        "delivered",
-        "undelivered"
-      ]
+      "values": ["queued", "sent", "failed", "delivered", "undelivered"]
     },
     "public.user_role": {
       "name": "user_role",
       "schema": "public",
-      "values": [
-        "customer",
-        "rider",
-        "admin"
-      ]
+      "values": ["customer", "rider", "admin"]
     },
     "public.user_status": {
       "name": "user_status",
       "schema": "public",
-      "values": [
-        "active",
-        "suspended"
-      ]
+      "values": ["active", "suspended"]
     }
   },
   "schemas": {},

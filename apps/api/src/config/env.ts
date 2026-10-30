@@ -2,6 +2,9 @@ import { z } from 'zod';
 
 const emptyToUndefined = (v: unknown) => (v === '' ? undefined : v);
 
+// Development-only default; production refuses to start with it.
+const DEV_OTP_SECRET = 'dev-only-otp-secret-not-for-production-use';
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -20,9 +23,52 @@ const envSchema = z
       .default('false')
       .transform((v) => v === 'true'),
     SMS_PROVIDER: z.enum(['console', 'afromessage']).default('console'),
+    AFROMESSAGE_BASE_URL: z.url().default('https://api.afromessage.com'),
+    AFROMESSAGE_TOKEN: z.preprocess(emptyToUndefined, z.string().optional()),
+    AFROMESSAGE_IDENTIFIER_ID: z.preprocess(emptyToUndefined, z.string().optional()),
+    AFROMESSAGE_SENDER: z.preprocess(emptyToUndefined, z.string().optional()),
+    SMS_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+    // Hard cap on OTP SMS sends per UTC day across all users (cost kill switch).
+    SMS_DAILY_BUDGET: z.coerce.number().int().nonnegative().default(500),
+
+    // Keyed hash for OTP codes. Must be a long random secret in production.
+    OTP_HMAC_SECRET: z.preprocess(emptyToUndefined, z.string().min(32).default(DEV_OTP_SECRET)),
+    OTP_TTL_SEC: z.coerce.number().int().positive().default(300),
+    OTP_RESEND_COOLDOWN_SEC: z.coerce.number().int().positive().default(60),
+    OTP_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(5),
+    OTP_LOCKOUT_MIN: z.coerce.number().int().positive().default(15),
+    OTP_PHONE_SENDS_PER_15MIN: z.coerce.number().int().positive().default(3),
+    OTP_PHONE_SENDS_PER_DAY: z.coerce.number().int().positive().default(6),
+    OTP_IP_SENDS_PER_HOUR: z.coerce.number().int().positive().default(10),
+    OTP_IP_VERIFIES_PER_15MIN: z.coerce.number().int().positive().default(30),
+
+    SESSION_IDLE_DAYS: z.coerce.number().int().positive().default(30),
+    SESSION_ABSOLUTE_DAYS: z.coerce.number().int().positive().default(90),
+    ADMIN_SESSION_HOURS: z.coerce.number().int().positive().default(12),
   })
   .superRefine((env, ctx) => {
+    if (env.SMS_PROVIDER === 'afromessage' && !env.AFROMESSAGE_TOKEN) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['AFROMESSAGE_TOKEN'],
+        message: 'required when SMS_PROVIDER=afromessage',
+      });
+    }
+    if (env.SESSION_IDLE_DAYS > env.SESSION_ABSOLUTE_DAYS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SESSION_IDLE_DAYS'],
+        message: 'must not exceed SESSION_ABSOLUTE_DAYS',
+      });
+    }
     if (env.NODE_ENV !== 'production') return;
+    if (env.OTP_HMAC_SECRET === DEV_OTP_SECRET) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['OTP_HMAC_SECRET'],
+        message: 'set a random secret of at least 32 characters in production',
+      });
+    }
     if (!env.DATABASE_URL) {
       ctx.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: 'required in production' });
     }

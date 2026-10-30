@@ -4,12 +4,26 @@ export class ApiRequestError extends Error {
   readonly status: number;
   readonly code: string;
   readonly fields: Record<string, string> | undefined;
+  readonly details: Record<string, unknown> | undefined;
 
-  constructor(status: number, code: string, message: string, fields?: Record<string, string>) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    fields?: Record<string, string>,
+    details?: Record<string, unknown>,
+  ) {
     super(message);
     this.status = status;
     this.code = code;
     this.fields = fields;
+    this.details = details;
+  }
+
+  /** Numeric detail from the server, e.g. retryAfterSec or attemptsRemaining. */
+  detailNumber(key: string): number | undefined {
+    const v = this.details?.[key];
+    return typeof v === 'number' ? v : undefined;
   }
 
   get isNetwork() {
@@ -53,8 +67,8 @@ export async function api<T>(
 
   const parsed = apiErrorSchema.safeParse(data);
   if (parsed.success) {
-    const { code, message, fields } = parsed.data.error;
-    throw new ApiRequestError(res.status, code, message, fields);
+    const { code, message, fields, details } = parsed.data.error;
+    throw new ApiRequestError(res.status, code, message, fields, details);
   }
   throw new ApiRequestError(res.status, 'UNEXPECTED', 'Something went wrong. Please try again.');
 }

@@ -19,7 +19,8 @@
     "format:check": "prettier --check .",
     "check": "npm run typecheck && npm run lint && npm run test",
     "db:generate": "npm run db:generate -w @dp/api",
-    "db:migrate": "npm run db:migrate -w @dp/api"
+    "db:migrate": "npm run db:migrate -w @dp/api",
+    "admin:grant": "npm run admin:grant -w @dp/api --"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

@@ -1,10 +1,10 @@
 import { NavLink, Outlet, Route, Routes } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { BadgeDollarSign, Map, Package, Scale, Users, UserCog } from 'lucide-react';
-import { SUB_CITIES } from '@dp/shared';
-import { RequireRole } from '../../lib/session.tsx';
+import { BadgeDollarSign, LogOut, Map, Package, Scale, Users, UserCog } from 'lucide-react';
+import { SUB_CITIES, formatPhone } from '@dp/shared';
+import { RequireRole, useSession, useSignOut } from '../../lib/session.tsx';
 import { useTheme } from '../../lib/theme.ts';
-import { PhoneSignIn } from '../../features/auth/PhoneSignIn.tsx';
+import { SignInFlow } from '../../features/auth/SignInFlow.tsx';
 import { LanguageToggle } from '../../features/auth/LanguageToggle.tsx';
 import { EmptyState, cn } from '../../ui/index.ts';
 import { Wordmark } from '../Wordmark.tsx';
@@ -60,11 +60,22 @@ function AdminSignIn() {
           <Wordmark suffix="Ops" className="lg:hidden" />
           <LanguageToggle />
         </header>
-        <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
-          <h1 className="text-2xl font-bold tracking-tight">{t('auth.admin.title')}</h1>
-          <p className="mt-1 mb-8 text-ink-2">{t('auth.admin.subtitle')}</p>
-          <PhoneSignIn submitSize="md" />
-        </div>
+        <SignInFlow
+          homePath="/admin"
+          submitSize="md"
+          intro={
+            <>
+              <h1 className="text-2xl font-bold tracking-tight">{t('auth.admin.title')}</h1>
+              <p className="mt-1 text-ink-2">{t('auth.admin.subtitle')}</p>
+            </>
+          }
+          layout={(heading, form) => (
+            <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-8 py-10">
+              {heading}
+              {form}
+            </div>
+          )}
+        />
       </div>
     </main>
   );
@@ -100,10 +111,33 @@ function AdminShell() {
             {label}
           </NavLink>
         ))}
+        <AdminUser />
       </nav>
       <main className="min-w-0 p-6">
         <Outlet />
       </main>
+    </div>
+  );
+}
+
+function AdminUser() {
+  const { t } = useTranslation();
+  const { data: user } = useSession();
+  const signOut = useSignOut('/admin/sign-in');
+  if (!user) return null;
+  return (
+    <div className="mt-auto border-t border-line px-2 pt-3">
+      <p className="truncate text-sm font-semibold">{user.fullName ?? 'Admin'}</p>
+      <p className="text-xs text-ink-3 tabular">{formatPhone(user.phone)}</p>
+      <button
+        type="button"
+        onClick={() => signOut.mutate()}
+        disabled={signOut.isPending}
+        className="mt-2 flex h-9 items-center gap-2 text-sm font-medium text-ink-2 hover:text-danger disabled:opacity-50"
+      >
+        <LogOut className="size-4" aria-hidden />
+        {signOut.isPending ? t('auth.signingOut') : t('auth.signOut')}
+      </button>
     </div>
   );
 }

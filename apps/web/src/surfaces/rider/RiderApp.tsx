@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Bike, Wallet, UserRound } from 'lucide-react';
 import { RequireRole } from '../../lib/session.tsx';
 import { useTheme } from '../../lib/theme.ts';
-import { PhoneSignIn } from '../../features/auth/PhoneSignIn.tsx';
+import { SignInFlow } from '../../features/auth/SignInFlow.tsx';
+import { AccountPanel } from '../../features/auth/AccountPanel.tsx';
 import { LanguageToggle } from '../../features/auth/LanguageToggle.tsx';
 import { Badge, EmptyState, cn } from '../../ui/index.ts';
 import { Wordmark } from '../Wordmark.tsx';
@@ -25,7 +26,7 @@ export default function RiderApp() {
           element={<EmptyState title="You're offline" body="Jobs are built in Phase 4." />}
         />
         <Route path="earnings" element={<EmptyState title="No earnings yet" />} />
-        <Route path="account" element={<EmptyState title="Account" />} />
+        <Route path="account" element={<AccountPanel signInPath="/rider/sign-in" />} />
       </Route>
     </Routes>
   );
@@ -34,27 +35,34 @@ export default function RiderApp() {
 function RiderSignIn() {
   const { t } = useTranslation();
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-5 pt-4 pb-safe">
-      <header className="flex items-center justify-between">
-        <span className="flex items-center gap-2">
-          <Wordmark />
-          <Badge tone="accent">Rider</Badge>
-        </span>
-        <LanguageToggle />
-      </header>
-
-      <div className="flex flex-1 flex-col justify-end pb-8">
-        <span className="mb-6 flex size-16 items-center justify-center rounded-2xl bg-accent-soft text-accent-soft-ink">
-          <Bike className="size-9" aria-hidden />
-        </span>
-        <h1 className="text-[28px] leading-tight font-bold tracking-tight">
-          {t('auth.rider.title')}
-        </h1>
-        <p className="mt-2 text-base text-ink-2">{t('auth.rider.subtitle')}</p>
-      </div>
-
-      <PhoneSignIn />
-    </main>
+    <SignInFlow
+      homePath="/rider"
+      intro={
+        <>
+          <span className="mb-6 flex size-16 items-center justify-center rounded-2xl bg-accent-soft text-accent-soft-ink">
+            <Bike className="size-9" aria-hidden />
+          </span>
+          <h1 className="text-[28px] leading-tight font-bold tracking-tight">
+            {t('auth.rider.title')}
+          </h1>
+          <p className="mt-2 text-base text-ink-2">{t('auth.rider.subtitle')}</p>
+        </>
+      }
+      layout={(heading, form) => (
+        <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-5 pt-4 pb-safe">
+          <header className="flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Wordmark />
+              <Badge tone="accent">Rider</Badge>
+            </span>
+            <LanguageToggle />
+          </header>
+          {/* Content sits low on the screen so it is within thumb reach on large Android phones. */}
+          <div className="flex flex-1 flex-col justify-end pb-8">{heading}</div>
+          {form}
+        </main>
+      )}
+    />
   );
 }
 

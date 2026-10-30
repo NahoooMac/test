@@ -7,6 +7,7 @@ export const apiErrorSchema = z.object({
     code: z.string(),
     message: z.string(),
     fields: z.record(z.string(), z.string()).optional(),
+    details: z.record(z.string(), z.unknown()).optional(),
   }),
 });
 export type ApiError = z.infer<typeof apiErrorSchema>;
@@ -33,3 +34,43 @@ export const currentUserSchema = z.object({
   preferredLanguage: z.enum(LANGUAGES),
 });
 export type CurrentUser = z.infer<typeof currentUserSchema>;
+
+// ── Auth contract ────────────────────────────────────────────────────────────
+
+export const otpRequestBodySchema = z.object({
+  phone: z.string().max(32),
+});
+
+/** Same shape whether or not the phone already has an account (no enumeration). */
+export const otpChallengeSchema = z.object({
+  challengeId: z.string().uuid(),
+  maskedPhone: z.string(),
+  expiresInSec: z.number().int(),
+  resendAfterSec: z.number().int(),
+});
+export type OtpChallenge = z.infer<typeof otpChallengeSchema>;
+
+export const otpVerifyBodySchema = z.object({
+  challengeId: z.string().uuid('Request a new code.'),
+  code: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code.'),
+});
+
+export const otpVerifyResponseSchema = z.object({
+  user: currentUserSchema,
+  needsProfile: z.boolean(),
+});
+export type OtpVerifyResponse = z.infer<typeof otpVerifyResponseSchema>;
+
+export const updateProfileBodySchema = z
+  .object({
+    fullName: z
+      .string()
+      .trim()
+      .min(2, 'Enter your name.')
+      .max(80, 'Use 80 characters or fewer.')
+      .optional(),
+    preferredLanguage: z.enum(LANGUAGES).optional(),
+  })
+  .refine((v) => v.fullName !== undefined || v.preferredLanguage !== undefined, {
+    message: 'Nothing to update.',
+  });

@@ -1,4 +1,4 @@
-import { useRef, type ClipboardEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, type ClipboardEvent, type KeyboardEvent } from 'react';
 import { cn } from './cn.ts';
 
 interface OtpInputProps {
@@ -8,6 +8,8 @@ interface OtpInputProps {
   label: string;
   error?: boolean;
   disabled?: boolean;
+  /** Blocks typing but keeps focus (e.g. while the code is being checked). */
+  busy?: boolean;
   autoFocus?: boolean;
 }
 
@@ -19,12 +21,20 @@ export function OtpInput({
   label,
   error,
   disabled,
+  busy,
   autoFocus,
 }: OtpInputProps) {
   const refs = useRef<Array<HTMLInputElement | null>>([]);
   const digits = Array.from({ length }, (_, i) => value[i] ?? '');
 
   const focus = (i: number) => refs.current[Math.max(0, Math.min(length - 1, i))]?.focus();
+
+  // When the code is cleared (wrong code, new code sent), put the cursor back in the first box.
+  const hadValue = useRef(false);
+  useEffect(() => {
+    if (value === '' && hadValue.current && !disabled) refs.current[0]?.focus();
+    hadValue.current = value !== '';
+  }, [value, disabled]);
 
   const setAt = (i: number, d: string) => {
     const next = digits.slice();
@@ -60,6 +70,7 @@ export function OtpInput({
           }}
           value={d}
           disabled={disabled}
+          readOnly={busy}
           autoFocus={autoFocus && i === 0}
           inputMode="numeric"
           autoComplete={i === 0 ? 'one-time-code' : 'off'}

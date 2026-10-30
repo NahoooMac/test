@@ -1,13 +1,17 @@
 import { mkdirSync } from 'node:fs';
 import { sql } from 'drizzle-orm';
-import { drizzle as drizzlePg, type NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { drizzle as drizzlePglite, type PgliteDatabase } from 'drizzle-orm/pglite';
+import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres';
+import { drizzle as drizzlePglite } from 'drizzle-orm/pglite';
+import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { PGlite } from '@electric-sql/pglite';
 import pg from 'pg';
 import * as schema from './schema.ts';
 
 export type Schema = typeof schema;
-export type Db = NodePgDatabase<Schema> | PgliteDatabase<Schema>;
+/** Driver-agnostic handle: both node-postgres and PGlite databases satisfy it. */
+export type Db = PgDatabase<PgQueryResultHKT, Schema>;
+/** A database handle or an open transaction. */
+export type Tx = Db | Parameters<Parameters<Db['transaction']>[0]>[0];
 
 export interface Database {
   db: Db;

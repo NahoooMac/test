@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Navigate, useLocation } from 'react-router';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Navigate, useLocation, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import type { CurrentUser, UserRole } from '@dp/shared';
 import { api, ApiRequestError } from './api.ts';
@@ -63,14 +63,46 @@ export function RequireRole({
   }
 
   if (session.data.role !== role) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <ErrorState title={t('errors.wrongAreaTitle')} body={t('errors.wrongAreaBody')} />
-      </div>
-    );
+    return <WrongArea signInPath={signInPath} />;
   }
 
   return children;
+}
+
+function WrongArea({ signInPath }: { signInPath: string }) {
+  const { t } = useTranslation();
+  const signOut = useSignOut(signInPath);
+  return (
+    <div className="flex min-h-dvh items-center justify-center">
+      <ErrorState
+        title={t('errors.wrongAreaTitle')}
+        body={t('errors.wrongAreaBody')}
+        action={
+          <Button variant="secondary" loading={signOut.isPending} onClick={() => signOut.mutate()}>
+            {t('auth.switchAccount')}
+          </Button>
+        }
+      />
+    </div>
+  );
+}
+
+/**
+ * Revokes the session on the server, then forgets every cached query (other users' data must
+ * never linger on a shared phone) and returns to the surface's sign-in screen.
+ */
+export function useSignOut(signInPath: string) {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  return useMutation({
+    mutationFn: () => api<void>('/auth/logout', { method: 'POST' }),
+    // Only after the server confirms: if logout failed, the cookie would still restore the session.
+    onSuccess: () => {
+      queryClient.clear();
+      queryClient.setQueryData(sessionQueryKey, null);
+      navigate(signInPath, { replace: true });
+    },
+  });
 }
 
 export function FullScreenLoader() {
