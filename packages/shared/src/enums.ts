@@ -34,14 +34,30 @@ export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
 
 /**
  * Statuses in which a rider is considered busy. Enforced by a partial unique index.
- * `returning` is pending product approval (plan Q5) and is intentionally not included yet.
+ * `returning` is included by default (plan Q5): a rider bringing a parcel back cannot take a new job.
  */
 export const ACTIVE_RIDER_STATUSES = [
   'assigned',
   'arrived_pickup',
   'picked_up',
   'arrived_dropoff',
+  'returning',
 ] as const satisfies readonly DeliveryStatus[];
+
+/** Delivery is still in progress from the customer's point of view. */
+export const OPEN_DELIVERY_STATUSES = [
+  'requested',
+  ...ACTIVE_RIDER_STATUSES,
+] as const satisfies readonly DeliveryStatus[];
+
+export const PARCEL_SIZES = ['small', 'medium', 'large'] as const;
+export type ParcelSize = (typeof PARCEL_SIZES)[number];
+
+export const RIDER_APPROVAL_STATUSES = ['pending', 'approved', 'rejected', 'suspended'] as const;
+export type RiderApprovalStatus = (typeof RIDER_APPROVAL_STATUSES)[number];
+
+export const ACTOR_ROLES = ['customer', 'rider', 'admin', 'system'] as const;
+export type ActorRole = (typeof ACTOR_ROLES)[number];
 
 export interface SubCity {
   slug: string;

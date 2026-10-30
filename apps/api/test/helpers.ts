@@ -5,6 +5,7 @@ import { runMigrations } from '../src/db/migrate.ts';
 import { buildApp } from '../src/app.ts';
 import { ManualClock } from '../src/shared/clock.ts';
 import { FakeSmsProvider } from '../src/integrations/sms/fake.ts';
+import { FakeGeoProvider } from '../src/integrations/maps/fake.ts';
 
 export const ORIGIN = 'http://localhost:5173';
 
@@ -22,7 +23,7 @@ export async function createTestApp(
   const config = loadConfig({ NODE_ENV: 'test', APP_ORIGIN: ORIGIN, ...opts.env });
   const clock = opts.clock ?? new ManualClock();
   const sms = new FakeSmsProvider();
-  const app = await buildApp({ config, database, clock, sms });
+  const app = await buildApp({ config, database, clock, sms, geo: new FakeGeoProvider() });
 
   // `ip` sets the client address (proxy headers are not trusted outside production).
   const post = (

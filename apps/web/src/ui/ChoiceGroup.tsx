@@ -7,6 +7,7 @@ export interface Choice<T extends string> {
   description?: string;
   icon?: ReactNode;
   aside?: ReactNode;
+  disabled?: boolean;
 }
 
 /** Large radio cards — vehicle type, payer, payment method. Native radios for accessibility. */
@@ -16,17 +17,22 @@ export function ChoiceGroup<T extends string>({
   value,
   onChange,
   columns = 2,
+  hideLegend = false,
 }: {
   legend: string;
   choices: Choice<T>[];
   value: T | undefined;
   onChange: (value: T) => void;
   columns?: 1 | 2 | 3;
+  /** Keep the legend for screen readers when a visible heading already names the group. */
+  hideLegend?: boolean;
 }) {
   const name = useId();
   return (
     <fieldset>
-      <legend className="mb-2 text-sm font-medium text-ink">{legend}</legend>
+      <legend className={hideLegend ? 'sr-only' : 'mb-2 text-sm font-medium text-ink'}>
+        {legend}
+      </legend>
       <div
         className={cn('grid gap-2', columns === 2 && 'grid-cols-2', columns === 3 && 'grid-cols-3')}
       >
@@ -39,6 +45,7 @@ export function ChoiceGroup<T extends string>({
                 'relative flex cursor-pointer items-center gap-3 rounded-xl border bg-surface p-3 transition-colors',
                 'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus',
                 checked ? 'border-ink ring-1 ring-ink' : 'border-line-strong hover:bg-surface-2',
+                c.disabled && 'cursor-not-allowed opacity-50 hover:bg-surface',
               )}
             >
               <input
@@ -46,6 +53,7 @@ export function ChoiceGroup<T extends string>({
                 name={name}
                 value={c.value}
                 checked={checked}
+                disabled={c.disabled}
                 onChange={() => onChange(c.value)}
                 className="sr-only"
               />

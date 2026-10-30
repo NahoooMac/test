@@ -52,6 +52,12 @@ touch Neon.
 - `npm run db:migrate` refuses to touch a remote database unless `ALLOW_REMOTE_MIGRATIONS=true`
   is set for that run. Use a Neon **development branch**, never the main branch.
 
+## Local vs Neon database
+
+- `npm run dev` uses `DATABASE_URL` from `apps/api/.env`, which currently points at Neon.
+- `npm run dev:local` ignores it and uses the embedded local database instead. Use this for trying
+  unreleased migrations and for test data that shouldn't go to Neon.
+
 ## Signing in locally
 
 Sign-in is by phone and a one-time code. In development, `SMS_PROVIDER=console` prints the code to

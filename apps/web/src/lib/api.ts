@@ -35,6 +35,7 @@ interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   body?: unknown;
   signal?: AbortSignal;
+  headers?: Record<string, string>;
 }
 
 /**
@@ -43,7 +44,7 @@ interface RequestOptions {
  */
 export async function api<T>(
   path: string,
-  { method = 'GET', body, signal }: RequestOptions = {},
+  { method = 'GET', body, signal, headers: extra }: RequestOptions = {},
 ): Promise<T> {
   let res: Response;
   try {
@@ -51,10 +52,11 @@ export async function api<T>(
       method,
       signal,
       credentials: 'same-origin',
-      headers:
-        body === undefined
-          ? { Accept: 'application/json' }
-          : { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...extra,
+      },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch (err) {

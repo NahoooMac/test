@@ -5,7 +5,13 @@ import { buildApp } from './app.ts';
 
 loadDotEnv();
 const config = loadConfig();
-const database = createDatabase({ url: config.DATABASE_URL, pgliteDir: config.PGLITE_DIR });
+// `--local-db` ignores DATABASE_URL and uses the embedded database, so unreleased migrations and
+// test data never touch Neon.
+const localDb = process.argv.includes('--local-db') && config.NODE_ENV !== 'production';
+const database = createDatabase({
+  url: localDb ? undefined : config.DATABASE_URL,
+  pgliteDir: config.PGLITE_DIR,
+});
 
 // Convenience for local development only: the embedded database migrates itself on boot.
 // A remote database is never migrated implicitly — use `npm run db:migrate`.

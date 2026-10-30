@@ -1,11 +1,12 @@
-// Phase 2 schema: identity, sessions, OTP, SMS log, rate limiting, service areas.
-// Delivery, rider, pricing and payment tables arrive in Phase 4 migrations.
+// Database schema. Money is NUMERIC(12,2) (decimal strings in JS); coordinates are NUMERIC(9,6).
+// Invariants that matter for money and dispatch are enforced here, not only in application code.
 import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
   index,
   integer,
+  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -16,7 +17,19 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { LANGUAGES, USER_ROLES, USER_STATUSES } from '@dp/shared';
+import {
+  ACTIVE_RIDER_STATUSES,
+  ACTOR_ROLES,
+  DELIVERY_STATUSES,
+  LANGUAGES,
+  PARCEL_SIZES,
+  PAYERS,
+  PAYMENT_METHODS,
+  RIDER_APPROVAL_STATUSES,
+  USER_ROLES,
+  USER_STATUSES,
+  VEHICLE_TYPES,
+} from '@dp/shared';
 
 const tstz = (name: string) => timestamp(name, { withTimezone: true });
 
@@ -177,3 +190,181 @@ export const serviceAreas = pgTable('service_areas', {
   active: boolean('active').notNull().default(true),
   sortOrder: smallint('sort_order').notNull(),
 });
+
+// ── Phase 4: riders, pricing, deliveries ────────────────────────────────────
+
+const money = (name: string) => numeric(name, { precision: 12, scale: 2 });
+const coord = (name: string) => numeric(name, { precision: 9, scale: 6, mode: 'number' });
+const activeStatusList = sql.raw(ACTIVE_RIDER_STATUSES.map((s) => `'${s}'`).join(', '));
+
+export const vehicleType = pgEnum('vehicle_type', VEHICLE_TYPES);
+export const deliveryStatus = pgEnum('delivery_status', DELIVERY_STATUSES);
+export const payer = pgEnum('payer', PAYERS);
+export const paymentMethod = pgEnum('payment_method', PAYMENT_METHODS);
+export const parcelSize = pgEnum('parcel_size', PARCEL_SIZES);
+export const riderApproval = pgEnum('rider_approval', RIDER_APPROVAL_STATUSES);
+export const actorRole = pgEnum('actor_role', ACTOR_ROLES);
+
+export const riders = pgTable(
+  'riders',
+  {
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    vehicleType: vehicleType('vehicle_type').notNull(),
+    plateNumber: text('plate_number'),
+    approvalStatus: riderApproval('approval_status').notNull().default('pending'),
+    isOnline: boolean('is_online').notNull().default(false),
+    currentLat: coord('current_lat'),
+    currentLng: coord('current_lng'),
+    locationUpdatedAt: tstz('location_updated_at'),
+    createdAt: tstz('created_at').notNull().defaultNow(),
+    updatedAt: tstz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      'riders_motorcycle_needs_plate',
+      sql`${t.vehicleType} <> 'motorcycle' or ${t.plateNumber} is not null`,
+    ),
+    index('riders_dispatch_idx').on(t.approvalStatus, t.isOnline, t.vehicleType),
+  ],
+);
+
+/** Versioned rates. Deliveries reference the rule they were priced with; history is never rewritten. */
+export const pricingRules = pgTable(
+  'pricing_rules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    vehicleType: vehicleType('vehicle_type').notNull(),
+    baseFare: money('base_fare').notNull(),
+    perKm: money('per_km').notNull(),
+    minimumFare: money('minimum_fare').notNull(),
+    maxDistanceKm: numeric('max_distance_km', { precision: 6, scale: 2, mode: 'number' }),
+    commissionRate: numeric('commission_rate', { precision: 5, scale: 4 }).notNull(),
+    cancellationFeeAfterArrival: money('cancellation_fee_after_arrival').notNull(),
+    effectiveFrom: tstz('effective_from').notNull().defaultNow(),
+    effectiveTo: tstz('effective_to'),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: tstz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('pricing_rules_one_current_per_vehicle')
+      .on(t.vehicleType)
+      .where(sql`${t.effectiveTo} is null`),
+    check(
+      'pricing_rules_commission_range',
+      sql`${t.commissionRate} >= 0 and ${t.commissionRate} < 1`,
+    ),
+    check(
+      'pricing_rules_non_negative',
+      sql`${t.baseFare} >= 0 and ${t.perKm} >= 0 and ${t.minimumFare} > 0 and ${t.cancellationFeeAfterArrival} >= 0`,
+    ),
+  ],
+);
+
+export const deliveries = pgTable(
+  'deliveries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    publicCode: text('public_code').notNull(),
+    customerId: uuid('customer_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    riderId: uuid('rider_id').references(() => riders.userId, { onDelete: 'restrict' }),
+    vehicleType: vehicleType('vehicle_type').notNull(),
+    status: deliveryStatus('status').notNull().default('requested'),
+    payer: payer('payer').notNull(),
+    preferredPaymentMethod: paymentMethod('preferred_payment_method').notNull(),
+
+    pickupAddress: text('pickup_address').notNull(),
+    pickupLat: coord('pickup_lat').notNull(),
+    pickupLng: coord('pickup_lng').notNull(),
+    pickupSubCity: text('pickup_sub_city'),
+    pickupContactName: text('pickup_contact_name').notNull(),
+    pickupContactPhone: text('pickup_contact_phone').notNull(),
+    pickupNotes: text('pickup_notes').notNull().default(''),
+
+    dropoffAddress: text('dropoff_address').notNull(),
+    dropoffLat: coord('dropoff_lat').notNull(),
+    dropoffLng: coord('dropoff_lng').notNull(),
+    dropoffSubCity: text('dropoff_sub_city'),
+    dropoffContactName: text('dropoff_contact_name').notNull(),
+    dropoffContactPhone: text('dropoff_contact_phone').notNull(),
+    dropoffNotes: text('dropoff_notes').notNull().default(''),
+
+    parcelDescription: text('parcel_description').notNull(),
+    parcelSize: parcelSize('parcel_size').notNull(),
+
+    distanceKm: numeric('distance_km', { precision: 8, scale: 2, mode: 'number' }).notNull(),
+    distanceSource: text('distance_source').notNull(),
+    etaMin: integer('eta_min').notNull(),
+
+    pricingRuleId: uuid('pricing_rule_id')
+      .notNull()
+      .references(() => pricingRules.id),
+    fareAmount: money('fare_amount').notNull(),
+    commissionRate: numeric('commission_rate', { precision: 5, scale: 4 }).notNull(),
+    commissionAmount: money('commission_amount').notNull(),
+    riderEarning: money('rider_earning').notNull(),
+    cancellationFee: money('cancellation_fee').notNull().default('0.00'),
+    cancelledBy: actorRole('cancelled_by'),
+    cancelReason: text('cancel_reason'),
+
+    assignedAt: tstz('assigned_at'),
+    arrivedPickupAt: tstz('arrived_pickup_at'),
+    pickedUpAt: tstz('picked_up_at'),
+    arrivedDropoffAt: tstz('arrived_dropoff_at'),
+    deliveredAt: tstz('delivered_at'),
+    cancelledAt: tstz('cancelled_at'),
+    failedAt: tstz('failed_at'),
+    returnedAt: tstz('returned_at'),
+
+    idempotencyKey: text('idempotency_key').notNull(),
+    version: integer('version').notNull().default(0),
+    createdAt: tstz('created_at').notNull().defaultNow(),
+    updatedAt: tstz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('deliveries_public_code_key').on(t.publicCode),
+    // A double-tapped "Confirm" (or a retried request) can never create two bookings.
+    uniqueIndex('deliveries_customer_idempotency_key').on(t.customerId, t.idempotencyKey),
+    // One active delivery per rider, enforced by the database so concurrent assignments
+    // cannot both succeed.
+    uniqueIndex('deliveries_one_active_per_rider')
+      .on(t.riderId)
+      .where(sql`${t.status} in (${activeStatusList})`),
+    index('deliveries_customer_created_idx').on(t.customerId, t.createdAt),
+    index('deliveries_status_created_idx').on(t.status, t.createdAt),
+    check('deliveries_fare_positive', sql`${t.fareAmount} > 0`),
+    check(
+      'deliveries_split_adds_up',
+      sql`${t.commissionAmount} + ${t.riderEarning} = ${t.fareAmount} and ${t.commissionAmount} >= 0`,
+    ),
+    check('deliveries_cancellation_fee_non_negative', sql`${t.cancellationFee} >= 0`),
+    check(
+      'deliveries_rider_when_active',
+      sql`${t.status} not in (${activeStatusList}, 'delivered', 'failed', 'returned') or ${t.riderId} is not null`,
+    ),
+  ],
+);
+
+/** Append-only audit trail of every status change. */
+export const deliveryEvents = pgTable(
+  'delivery_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    deliveryId: uuid('delivery_id')
+      .notNull()
+      .references(() => deliveries.id, { onDelete: 'cascade' }),
+    fromStatus: deliveryStatus('from_status'),
+    toStatus: deliveryStatus('to_status').notNull(),
+    actorUserId: uuid('actor_user_id').references(() => users.id),
+    actorRole: actorRole('actor_role').notNull(),
+    note: text('note'),
+    lat: coord('lat'),
+    lng: coord('lng'),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    createdAt: tstz('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('delivery_events_delivery_idx').on(t.deliveryId, t.createdAt)],
+);

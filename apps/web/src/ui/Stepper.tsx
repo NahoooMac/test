@@ -11,10 +11,10 @@ export function Stepper({ steps, current }: { steps: string[]; current: number }
         return (
           <li
             key={label}
+            // Connector lines absorb the spare width; the active label never shrinks.
             className={cn(
               'flex items-center gap-2',
-              active ? 'min-w-0 flex-1' : 'shrink-0',
-              i < steps.length - 1 && !active && 'flex-1',
+              i < steps.length - 1 ? 'min-w-0 flex-1' : 'shrink-0',
             )}
             aria-current={active ? 'step' : undefined}
           >
@@ -29,7 +29,11 @@ export function Stepper({ steps, current }: { steps: string[]; current: number }
               {done ? <Check className="size-3.5" strokeWidth={3} aria-hidden /> : i + 1}
             </span>
             {/* Only the active label is shown, so steps stay legible on narrow phones. */}
-            <span className={active ? 'truncate text-sm font-semibold text-ink' : 'sr-only'}>
+            <span
+              className={
+                active ? 'shrink-0 text-sm font-semibold whitespace-nowrap text-ink' : 'sr-only'
+              }
+            >
               {label}
               {done && <span className="sr-only"> (done)</span>}
             </span>

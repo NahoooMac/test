@@ -15,6 +15,20 @@
       "when": 1793391759390,
       "tag": "0001_seed_service_areas",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793396183844,
+      "tag": "0002_deliveries",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793396192945,
+      "tag": "0003_seed_pricing",
+      "breakpoints": true
     }
   ]
 }

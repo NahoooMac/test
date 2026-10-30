@@ -42,6 +42,10 @@ const envSchema = z
     OTP_IP_SENDS_PER_HOUR: z.coerce.number().int().positive().default(10),
     OTP_IP_VERIFIES_PER_15MIN: z.coerce.number().int().positive().default(30),
 
+    // Server-side only. Without a key, a small offline place list is used (dev/tests).
+    YANDEX_GEOCODER_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+    YANDEX_GEOSUGGEST_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+
     SESSION_IDLE_DAYS: z.coerce.number().int().positive().default(30),
     SESSION_ABSOLUTE_DAYS: z.coerce.number().int().positive().default(90),
     ADMIN_SESSION_HOURS: z.coerce.number().int().positive().default(12),
