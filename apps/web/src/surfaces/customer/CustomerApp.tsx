@@ -21,7 +21,10 @@ export default function CustomerApp() {
           </RequireRole>
         }
       >
-        <Route index element={<EmptyState title="Booking" body="The booking flow is built in Phase 4." />} />
+        <Route
+          index
+          element={<EmptyState title="Booking" body="The booking flow is built in Phase 4." />}
+        />
         <Route path="deliveries" element={<EmptyState title="No deliveries yet" />} />
         <Route path="account" element={<EmptyState title="Account" />} />
       </Route>
@@ -40,7 +43,9 @@ function CustomerSignIn() {
 
       <div className="flex flex-1 flex-col justify-center py-8">
         <RouteMotif className="mb-8 w-full max-w-xs" />
-        <h1 className="text-[28px] leading-tight font-bold tracking-tight text-balance">{t('auth.customer.title')}</h1>
+        <h1 className="text-[28px] leading-tight font-bold tracking-tight text-balance">
+          {t('auth.customer.title')}
+        </h1>
         <p className="mt-2 text-base text-ink-2">{t('auth.customer.subtitle')}</p>
       </div>
 
@@ -61,14 +66,20 @@ function CustomerShell() {
       <main className="flex-1">
         <Outlet />
       </main>
-      <nav className="sticky bottom-0 flex border-t border-line bg-surface pb-safe" aria-label="Main">
+      <nav
+        className="sticky bottom-0 flex border-t border-line bg-surface pb-safe"
+        aria-label="Main"
+      >
         {tabs.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}
             end={end}
             className={({ isActive }) =>
-              cn('flex flex-1 flex-col items-center gap-1 pt-2 text-xs font-medium', isActive ? 'text-ink' : 'text-ink-3')
+              cn(
+                'flex flex-1 flex-col items-center gap-1 pt-2 text-xs font-medium',
+                isActive ? 'text-ink' : 'text-ink-3',
+              )
             }
           >
             <Icon className="size-6" aria-hidden />

@@ -17,7 +17,9 @@ const inFiveMinutes = () => new Date(Date.now() + 5 * 60_000);
 describe('users', () => {
   it('rejects a second account for the same normalized phone', async () => {
     await database.db.insert(users).values({ phoneE164: '+251911000001' });
-    await expect(database.db.insert(users).values({ phoneE164: '+251911000001' })).rejects.toThrow();
+    await expect(
+      database.db.insert(users).values({ phoneE164: '+251911000001' }),
+    ).rejects.toThrow();
   });
 
   it('rejects phone numbers that are not normalized Ethiopian mobiles', async () => {

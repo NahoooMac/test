@@ -27,14 +27,20 @@ interface RequestOptions {
  * Same-origin JSON client. Authentication rides on the HttpOnly session cookie,
  * so nothing auth-related is ever read or written by JavaScript.
  */
-export async function api<T>(path: string, { method = 'GET', body, signal }: RequestOptions = {}): Promise<T> {
+export async function api<T>(
+  path: string,
+  { method = 'GET', body, signal }: RequestOptions = {},
+): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`/api${path}`, {
       method,
       signal,
       credentials: 'same-origin',
-      headers: body === undefined ? { Accept: 'application/json' } : { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers:
+        body === undefined
+          ? { Accept: 'application/json' }
+          : { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch (err) {

@@ -77,7 +77,11 @@ export function DataTable<Row>({
                 {columns.map((c) => (
                   <td
                     key={c.key}
-                    className={cn('h-12 px-4 text-ink', c.align === 'right' && 'text-right tabular', c.className)}
+                    className={cn(
+                      'h-12 px-4 text-ink',
+                      c.align === 'right' && 'text-right tabular',
+                      c.className,
+                    )}
                   >
                     {c.cell(row)}
                   </td>

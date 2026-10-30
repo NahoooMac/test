@@ -1,7 +1,15 @@
 // Development-only catalogue of the design system. Not shipped in production builds.
 // All delivery details shown here are EXAMPLE DATA for layout review.
 import { useEffect, useState, type ReactNode } from 'react';
-import { Banknote, Bike, ChevronLeft, LocateFixed, MessageSquare, Phone, Search } from 'lucide-react';
+import {
+  Banknote,
+  Bike,
+  ChevronLeft,
+  LocateFixed,
+  MessageSquare,
+  Phone,
+  Search,
+} from 'lucide-react';
 import {
   Badge,
   Button,
@@ -48,7 +56,12 @@ export default function DesignPreview() {
         <Wordmark suffix="Design system" />
         <div className="ml-auto flex flex-wrap gap-3">
           <Segmented label="Theme" value={theme} onChange={setTheme} options={['light', 'dark']} />
-          <Segmented label="Accent" value={accent} onChange={setAccent} options={['green', 'amber']} />
+          <Segmented
+            label="Accent"
+            value={accent}
+            onChange={setAccent}
+            options={['green', 'amber']}
+          />
         </div>
       </header>
 
@@ -73,9 +86,13 @@ export default function DesignPreview() {
 
         <Section title="Type">
           <div className="flex flex-col gap-3">
-            <p className="text-[28px] leading-tight font-bold tracking-tight">Send a parcel across Addis</p>
+            <p className="text-[28px] leading-tight font-bold tracking-tight">
+              Send a parcel across Addis
+            </p>
             <p className="text-xl font-semibold">Section heading · በአዲስ አበባ ውስጥ እቃ ይላኩ</p>
-            <p className="text-base text-ink-2">Body text for descriptions and helper copy. ስልክ ቁጥርዎን ያስገቡ።</p>
+            <p className="text-base text-ink-2">
+              Body text for descriptions and helper copy. ስልክ ቁጥርዎን ያስገቡ።
+            </p>
             <p className="text-sm text-ink-3">Secondary · timestamps · captions</p>
             <p className="text-4xl font-bold tabular">
               12 <span className="text-base font-medium text-ink-3">min</span>
@@ -110,19 +127,34 @@ export default function DesignPreview() {
         <Section title="Status">
           <div className="flex flex-col gap-6">
             <div className="flex flex-wrap gap-2">
-              <Badge tone="neutral" dot>Requested</Badge>
-              <Badge tone="info" dot>Assigned</Badge>
-              <Badge tone="accent" dot>Picked up</Badge>
-              <Badge tone="success" dot>Delivered</Badge>
-              <Badge tone="warning" dot>Returning</Badge>
-              <Badge tone="danger" dot>Failed</Badge>
+              <Badge tone="neutral" dot>
+                Requested
+              </Badge>
+              <Badge tone="info" dot>
+                Assigned
+              </Badge>
+              <Badge tone="accent" dot>
+                Picked up
+              </Badge>
+              <Badge tone="success" dot>
+                Delivered
+              </Badge>
+              <Badge tone="warning" dot>
+                Returning
+              </Badge>
+              <Badge tone="danger" dot>
+                Failed
+              </Badge>
               <PlateBadge>3-A12345</PlateBadge>
             </div>
             <div className="max-w-md">
               <Stepper steps={['Route', 'Parcel', 'Vehicle', 'Confirm']} current={2} />
             </div>
             <div className="max-w-md">
-              <StatusProgress stages={['Assigned', 'At pickup', 'Picked up', 'At drop-off', 'Delivered']} current={2} />
+              <StatusProgress
+                stages={['Assigned', 'At pickup', 'Picked up', 'At drop-off', 'Delivered']}
+                current={2}
+              />
             </div>
           </div>
         </Section>
@@ -264,7 +296,8 @@ function BookingExample() {
             ]}
           />
           <p className="flex items-center gap-2 text-sm text-ink-2">
-            <Banknote className="size-4" aria-hidden /> Cash, Telebirr or CBE Birr — paid directly to the rider.
+            <Banknote className="size-4" aria-hidden /> Cash, Telebirr or CBE Birr — paid directly
+            to the rider.
           </p>
         </div>
       </div>
@@ -302,10 +335,15 @@ function TrackingExample() {
           </div>
         </div>
         <div className="mt-4">
-          <StatusProgress stages={['Assigned', 'Pickup', 'Picked up', 'Drop-off', 'Done']} current={3} />
+          <StatusProgress
+            stages={['Assigned', 'Pickup', 'Picked up', 'Drop-off', 'Done']}
+            current={3}
+          />
         </div>
         <Panel className="mt-4 flex items-center gap-3 p-3">
-          <span className="flex size-11 items-center justify-center rounded-full bg-surface-2 font-bold text-ink-2">AT</span>
+          <span className="flex size-11 items-center justify-center rounded-full bg-surface-2 font-bold text-ink-2">
+            AT
+          </span>
           <div className="min-w-0 flex-1">
             <p className="font-semibold">Abebe T.</p>
             <p className="text-sm text-ink-3">Motorcycle · Bajaj Boxer</p>
@@ -415,7 +453,16 @@ function Price({ value, eta }: { value: string; eta: string }) {
 
 function MotorcycleIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg
+      viewBox="0 0 24 24"
+      className="size-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
       <circle cx="5" cy="16" r="3" />
       <circle cx="19" cy="16" r="3" />
       <path d="M8 16h5l3-6h-4l-2 3H7" />
@@ -428,7 +475,12 @@ function FormExamples() {
   const [otp, setOtp] = useState('482');
   return (
     <div className="grid max-w-3xl gap-6 md:grid-cols-2">
-      <TextField label="Phone number" prefix="+251" placeholder="91 123 4567" hint="Ethio Telecom or Safaricom number" />
+      <TextField
+        label="Phone number"
+        prefix="+251"
+        placeholder="91 123 4567"
+        hint="Ethio Telecom or Safaricom number"
+      />
       <TextField
         label="Phone number"
         prefix="+251"
@@ -471,10 +523,19 @@ function FeedbackExamples() {
       </div>
       <div className="flex flex-col gap-3">
         <Panel>
-          <EmptyState title="No deliveries yet" body="Your sent and received parcels will appear here." action={<Button>Send a parcel</Button>} />
+          <EmptyState
+            title="No deliveries yet"
+            body="Your sent and received parcels will appear here."
+            action={<Button>Send a parcel</Button>}
+          />
         </Panel>
         <Panel>
-          <ErrorState offline title="You're offline" body="We'll keep trying. Your rider can still see the job." action={<Button variant="secondary">Try again</Button>} />
+          <ErrorState
+            offline
+            title="You're offline"
+            body="We'll keep trying. Your rider can still see the job."
+            action={<Button variant="secondary">Try again</Button>}
+          />
         </Panel>
         <Panel className="flex flex-col gap-3 p-4">
           <Skeleton className="h-5 w-1/2" />
@@ -485,7 +546,13 @@ function FeedbackExamples() {
           <Timeline
             items={[
               { id: '1', title: 'Booked', time: '10:02', state: 'done' },
-              { id: '2', title: 'Rider assigned', detail: 'Abebe T. · 3-A12345', time: '10:04', state: 'done' },
+              {
+                id: '2',
+                title: 'Rider assigned',
+                detail: 'Abebe T. · 3-A12345',
+                time: '10:04',
+                state: 'done',
+              },
               { id: '3', title: 'Picked up', time: '10:19', state: 'current' },
               { id: '4', title: 'Delivered', state: 'upcoming' },
             ]}
@@ -506,10 +573,34 @@ interface ExampleRow {
 
 function TableExample() {
   const rows: ExampleRow[] = [
-    { code: 'K7Q2', status: { label: 'Picked up', tone: 'accent' }, route: 'Bole → Arada', vehicle: 'Motorcycle', fare: '185.00' },
-    { code: 'P3M9', status: { label: 'Assigned', tone: 'info' }, route: 'Kirkos → Yeka', vehicle: 'Bicycle', fare: '95.00' },
-    { code: 'D8X1', status: { label: 'Delivered', tone: 'success' }, route: 'Lideta → Bole', vehicle: 'Motorcycle', fare: '210.00' },
-    { code: 'F2C6', status: { label: 'Failed', tone: 'danger' }, route: 'Gullele → Kolfe', vehicle: 'Motorcycle', fare: '160.00' },
+    {
+      code: 'K7Q2',
+      status: { label: 'Picked up', tone: 'accent' },
+      route: 'Bole → Arada',
+      vehicle: 'Motorcycle',
+      fare: '185.00',
+    },
+    {
+      code: 'P3M9',
+      status: { label: 'Assigned', tone: 'info' },
+      route: 'Kirkos → Yeka',
+      vehicle: 'Bicycle',
+      fare: '95.00',
+    },
+    {
+      code: 'D8X1',
+      status: { label: 'Delivered', tone: 'success' },
+      route: 'Lideta → Bole',
+      vehicle: 'Motorcycle',
+      fare: '210.00',
+    },
+    {
+      code: 'F2C6',
+      status: { label: 'Failed', tone: 'danger' },
+      route: 'Gullele → Kolfe',
+      vehicle: 'Motorcycle',
+      fare: '160.00',
+    },
   ];
   return (
     <div className="flex flex-col gap-6">
@@ -519,8 +610,20 @@ function TableExample() {
         rowKey={(r) => r.code}
         onRowClick={() => {}}
         columns={[
-          { key: 'code', header: 'Code', cell: (r) => <span className="font-mono font-semibold">{r.code}</span> },
-          { key: 'status', header: 'Status', cell: (r) => <Badge tone={r.status.tone} dot>{r.status.label}</Badge> },
+          {
+            key: 'code',
+            header: 'Code',
+            cell: (r) => <span className="font-mono font-semibold">{r.code}</span>,
+          },
+          {
+            key: 'status',
+            header: 'Status',
+            cell: (r) => (
+              <Badge tone={r.status.tone} dot>
+                {r.status.label}
+              </Badge>
+            ),
+          },
           { key: 'route', header: 'Route', cell: (r) => r.route },
           { key: 'vehicle', header: 'Vehicle', cell: (r) => r.vehicle },
           { key: 'fare', header: 'Fare (ETB)', align: 'right', cell: (r) => r.fare },
@@ -556,7 +659,10 @@ function Swatches() {
           <div className="flex flex-wrap gap-2">
             {tokens.map((tk) => (
               <div key={tk} className="w-24">
-                <div className="h-12 rounded-lg border border-line" style={{ background: `var(--c-${tk})` }} />
+                <div
+                  className="h-12 rounded-lg border border-line"
+                  style={{ background: `var(--c-${tk})` }}
+                />
                 <p className="mt-1 font-mono text-[11px] text-ink-3">{tk}</p>
               </div>
             ))}

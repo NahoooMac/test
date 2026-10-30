@@ -52,7 +52,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 )}
               />
               <p className="flex-1 text-sm font-medium">{t.message}</p>
-              <button onClick={() => dismiss(t.id)} aria-label="Dismiss" className="-m-1 p-1 opacity-70 hover:opacity-100">
+              <button
+                onClick={() => dismiss(t.id)}
+                aria-label="Dismiss"
+                className="-m-1 p-1 opacity-70 hover:opacity-100"
+              >
                 <X className="size-4" aria-hidden />
               </button>
             </div>

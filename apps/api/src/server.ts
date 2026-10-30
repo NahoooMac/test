@@ -24,5 +24,5 @@ const shutdown = async (signal: string) => {
 process.once('SIGINT', () => void shutdown('SIGINT'));
 process.once('SIGTERM', () => void shutdown('SIGTERM'));
 
-await app.listen({ host: config.HOST, port: config.PORT });
+await app.listen({ host: config.HOST, port: config.API_PORT });
 app.log.info(`database: ${database.driver}`);

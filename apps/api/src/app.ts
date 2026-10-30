@@ -15,7 +15,10 @@ export interface AppDeps {
 export async function buildApp({ config, database }: AppDeps) {
   const logger: FastifyServerOptions['logger'] =
     config.NODE_ENV === 'development'
-      ? { level: config.LOG_LEVEL, transport: { target: 'pino-pretty', options: { singleLine: true } } }
+      ? {
+          level: config.LOG_LEVEL,
+          transport: { target: 'pino-pretty', options: { singleLine: true } },
+        }
       : { level: config.NODE_ENV === 'test' ? 'silent' : config.LOG_LEVEL };
 
   const app = Fastify({

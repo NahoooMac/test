@@ -29,7 +29,13 @@ export const otpCloseReason = pgEnum('otp_close_reason', [
   'max_attempts',
   'superseded',
 ]);
-export const smsStatus = pgEnum('sms_status', ['queued', 'sent', 'failed', 'delivered', 'undelivered']);
+export const smsStatus = pgEnum('sms_status', [
+  'queued',
+  'sent',
+  'failed',
+  'delivered',
+  'undelivered',
+]);
 export const lockoutScope = pgEnum('lockout_scope', ['phone', 'ip']);
 
 export const users = pgTable(
@@ -101,7 +107,10 @@ export const otpChallenges = pgTable(
       .on(t.phoneE164, t.purpose)
       .where(sql`${t.closedAt} is null`),
     index('otp_challenges_phone_created_idx').on(t.phoneE164, t.createdAt),
-    check('otp_challenges_attempts_range', sql`${t.attempts} >= 0 and ${t.attempts} <= ${t.maxAttempts}`),
+    check(
+      'otp_challenges_attempts_range',
+      sql`${t.attempts} >= 0 and ${t.attempts} <= ${t.maxAttempts}`,
+    ),
     check(
       'otp_challenges_close_consistency',
       sql`(${t.closedAt} is null) = (${t.closeReason} is null)`,

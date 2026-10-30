@@ -20,7 +20,10 @@ export default function RiderApp() {
           </RequireRole>
         }
       >
-        <Route index element={<EmptyState title="You're offline" body="Jobs are built in Phase 4." />} />
+        <Route
+          index
+          element={<EmptyState title="You're offline" body="Jobs are built in Phase 4." />}
+        />
         <Route path="earnings" element={<EmptyState title="No earnings yet" />} />
         <Route path="account" element={<EmptyState title="Account" />} />
       </Route>
@@ -41,10 +44,12 @@ function RiderSignIn() {
       </header>
 
       <div className="flex flex-1 flex-col justify-end pb-8">
-        <span className="mb-6 flex size-16 items-center justify-center rounded-2xl bg-ink text-accent">
+        <span className="mb-6 flex size-16 items-center justify-center rounded-2xl bg-accent-soft text-accent-soft-ink">
           <Bike className="size-9" aria-hidden />
         </span>
-        <h1 className="text-[28px] leading-tight font-bold tracking-tight">{t('auth.rider.title')}</h1>
+        <h1 className="text-[28px] leading-tight font-bold tracking-tight">
+          {t('auth.rider.title')}
+        </h1>
         <p className="mt-2 text-base text-ink-2">{t('auth.rider.subtitle')}</p>
       </div>
 
@@ -65,7 +70,10 @@ function RiderShell() {
       <main className="flex-1">
         <Outlet />
       </main>
-      <nav className="sticky bottom-0 flex border-t border-line bg-surface pb-safe" aria-label="Rider">
+      <nav
+        className="sticky bottom-0 flex border-t border-line bg-surface pb-safe"
+        aria-label="Rider"
+      >
         {tabs.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}

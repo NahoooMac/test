@@ -41,9 +41,16 @@ export function ErrorState({
   className?: string;
 }) {
   return (
-    <div role="alert" className={cn('flex flex-col items-center px-6 py-10 text-center', className)}>
+    <div
+      role="alert"
+      className={cn('flex flex-col items-center px-6 py-10 text-center', className)}
+    >
       <span className="mb-4 flex size-12 items-center justify-center rounded-full bg-danger-soft text-danger">
-        {offline ? <WifiOff className="size-6" aria-hidden /> : <AlertTriangle className="size-6" aria-hidden />}
+        {offline ? (
+          <WifiOff className="size-6" aria-hidden />
+        ) : (
+          <AlertTriangle className="size-6" aria-hidden />
+        )}
       </span>
       <h3 className="text-base font-semibold text-ink">{title}</h3>
       {body && <p className="mt-1 max-w-sm text-sm text-ink-2">{body}</p>}
@@ -79,5 +86,7 @@ export function Notice({
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <span aria-hidden className={cn('block animate-pulse rounded-lg bg-surface-2', className)} />;
+  return (
+    <span aria-hidden className={cn('block animate-pulse rounded-lg bg-surface-2', className)} />
+  );
 }

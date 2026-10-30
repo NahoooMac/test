@@ -25,7 +25,9 @@ function body(code: string, message: string, fields?: Record<string, string>): A
 
 export function registerErrorHandling(app: FastifyInstance): void {
   app.setNotFoundHandler((req, reply) => {
-    reply.status(404).send(body('NOT_FOUND', `No route for ${req.method} ${req.url.split('?')[0]}`));
+    reply
+      .status(404)
+      .send(body('NOT_FOUND', `No route for ${req.method} ${req.url.split('?')[0]}`));
   });
 
   app.setErrorHandler((err: FastifyError | AppError, req, reply) => {
@@ -40,7 +42,8 @@ export function registerErrorHandling(app: FastifyInstance): void {
       }
       return reply.status(400).send(body('VALIDATION_FAILED', 'Some fields are invalid.', fields));
     }
-    const status = err.statusCode && err.statusCode >= 400 && err.statusCode < 500 ? err.statusCode : 500;
+    const status =
+      err.statusCode && err.statusCode >= 400 && err.statusCode < 500 ? err.statusCode : 500;
     if (status >= 500) req.log.error({ err }, 'unhandled error');
     return reply
       .status(status)

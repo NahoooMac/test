@@ -8,7 +8,11 @@ export function LanguageToggle({ className }: { className?: string }) {
     { value: 'am', label: 'አማ' },
   ];
   return (
-    <div role="group" aria-label={t('common.language')} className={cn('flex rounded-full bg-surface-2 p-0.5', className)}>
+    <div
+      role="group"
+      aria-label={t('common.language')}
+      className={cn('flex rounded-full bg-surface-2 p-0.5', className)}
+    >
       {options.map((o) => {
         const active = i18n.language === o.value;
         return (

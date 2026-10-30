@@ -21,7 +21,12 @@ export default function AdminApp() {
           </RequireRole>
         }
       >
-        <Route index element={<EmptyState title="No riders online" body="Riders appear here when they go online." />} />
+        <Route
+          index
+          element={
+            <EmptyState title="No riders online" body="Riders appear here when they go online." />
+          }
+        />
         <Route path="*" element={<EmptyState title="Coming in Phase 4" />} />
       </Route>
     </Routes>
@@ -35,7 +40,9 @@ function AdminSignIn() {
       <aside className="hidden flex-col justify-between bg-inverse p-10 text-inverse-ink lg:flex">
         <Wordmark suffix="Operations" inverse />
         <div>
-          <p className="text-sm font-semibold tracking-wide text-inverse-ink/60 uppercase">Service area</p>
+          <p className="text-sm font-semibold tracking-wide text-inverse-ink/60 uppercase">
+            Service area
+          </p>
           <ul className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-[15px]">
             {SUB_CITIES.map((s) => (
               <li key={s.slug} className="flex items-baseline gap-2">

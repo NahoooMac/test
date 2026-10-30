@@ -27,7 +27,9 @@ export function ChoiceGroup<T extends string>({
   return (
     <fieldset>
       <legend className="mb-2 text-sm font-medium text-ink">{legend}</legend>
-      <div className={cn('grid gap-2', columns === 2 && 'grid-cols-2', columns === 3 && 'grid-cols-3')}>
+      <div
+        className={cn('grid gap-2', columns === 2 && 'grid-cols-2', columns === 3 && 'grid-cols-3')}
+      >
         {choices.map((c) => {
           const checked = c.value === value;
           return (

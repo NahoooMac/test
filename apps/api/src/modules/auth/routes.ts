@@ -9,6 +9,10 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   app.post('/auth/otp/request', async () => {
-    throw new AppError(503, 'NOT_AVAILABLE_YET', 'Phone sign-in is not available yet. It is being built in Phase 3.');
+    throw new AppError(
+      503,
+      'NOT_AVAILABLE_YET',
+      'Phone sign-in is not available yet. It is being built in Phase 3.',
+    );
   });
 }

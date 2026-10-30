@@ -10,7 +10,16 @@ export interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElemen
   ref?: Ref<HTMLInputElement>;
 }
 
-export function TextField({ label, hint, error, prefix, suffix, className, id, ...input }: TextFieldProps) {
+export function TextField({
+  label,
+  hint,
+  error,
+  prefix,
+  suffix,
+  className,
+  id,
+  ...input
+}: TextFieldProps) {
   const autoId = useId();
   const inputId = id ?? autoId;
   const hintId = `${inputId}-hint`;

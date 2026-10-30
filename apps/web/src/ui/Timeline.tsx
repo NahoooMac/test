@@ -33,7 +33,12 @@ export function Timeline({ items }: { items: TimelineItem[] }) {
           />
           <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
             <div className="min-w-0">
-              <p className={cn('text-[15px]', item.state === 'upcoming' ? 'text-ink-3' : 'font-medium text-ink')}>
+              <p
+                className={cn(
+                  'text-[15px]',
+                  item.state === 'upcoming' ? 'text-ink-3' : 'font-medium text-ink',
+                )}
+              >
                 {item.title}
               </p>
               {item.detail && <p className="text-sm text-ink-3">{item.detail}</p>}

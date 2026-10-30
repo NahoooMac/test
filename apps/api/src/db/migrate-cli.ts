@@ -17,7 +17,9 @@ if (url && !config.ALLOW_REMOTE_MIGRATIONS) {
 }
 
 const database = createDatabase({ url, pgliteDir: config.PGLITE_DIR });
-const target = url ? `remote Postgres (${new URL(url).hostname})` : `local PGlite (${config.PGLITE_DIR})`;
+const target = url
+  ? `remote Postgres (${new URL(url).hostname})`
+  : `local PGlite (${config.PGLITE_DIR})`;
 console.log(`Applying migrations to ${target}…`);
 
 try {

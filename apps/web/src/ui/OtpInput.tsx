@@ -12,7 +12,15 @@ interface OtpInputProps {
 }
 
 /** Six separate boxes, one digit each; paste and SMS autofill (one-time-code) fill all boxes. */
-export function OtpInput({ value, onChange, length = 6, label, error, disabled, autoFocus }: OtpInputProps) {
+export function OtpInput({
+  value,
+  onChange,
+  length = 6,
+  label,
+  error,
+  disabled,
+  autoFocus,
+}: OtpInputProps) {
   const refs = useRef<Array<HTMLInputElement | null>>([]);
   const digits = Array.from({ length }, (_, i) => value[i] ?? '');
 

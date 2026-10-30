@@ -15,7 +15,14 @@ export function RouteMotif({ className }: { className?: string }) {
         strokeLinecap="round"
         strokeDasharray="2 10"
       />
-      <circle cx="28" cy="92" r="11" fill="var(--c-surface)" stroke="var(--c-ink)" strokeWidth="4" />
+      <circle
+        cx="28"
+        cy="92"
+        r="11"
+        fill="var(--c-surface)"
+        stroke="var(--c-ink)"
+        strokeWidth="4"
+      />
       <path
         d="M288 6c-10 0-18 8-18 18 0 13 18 30 18 30s18-17 18-30c0-10-8-18-18-18z"
         fill="var(--c-ink)"

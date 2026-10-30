@@ -6,8 +6,11 @@ const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     HOST: z.string().default('127.0.0.1'),
-    PORT: z.coerce.number().int().positive().default(3000),
-    LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+    // Not `PORT`: dev tooling and hosts often set PORT for the web server, which must not move the API.
+    API_PORT: z.coerce.number().int().positive().default(3000),
+    LOG_LEVEL: z
+      .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+      .default('info'),
     APP_ORIGIN: z.url().default('http://localhost:5173'),
     DATABASE_URL: z.preprocess(emptyToUndefined, z.string().optional()),
     DATABASE_URL_DIRECT: z.preprocess(emptyToUndefined, z.string().optional()),
@@ -24,10 +27,18 @@ const envSchema = z
       ctx.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: 'required in production' });
     }
     if (env.SMS_PROVIDER === 'console') {
-      ctx.addIssue({ code: 'custom', path: ['SMS_PROVIDER'], message: 'console provider is not allowed in production' });
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SMS_PROVIDER'],
+        message: 'console provider is not allowed in production',
+      });
     }
     if (!env.APP_ORIGIN.startsWith('https://')) {
-      ctx.addIssue({ code: 'custom', path: ['APP_ORIGIN'], message: 'must be https in production' });
+      ctx.addIssue({
+        code: 'custom',
+        path: ['APP_ORIGIN'],
+        message: 'must be https in production',
+      });
     }
   });
 
@@ -37,7 +48,9 @@ export function loadConfig(source: Record<string, string | undefined> = process.
   const parsed = envSchema.safeParse(source);
   if (!parsed.success) {
     // Print variable names and problems only — never values.
-    const problems = parsed.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`).join('\n');
+    const problems = parsed.error.issues
+      .map((i) => `  ${i.path.join('.')}: ${i.message}`)
+      .join('\n');
     throw new Error(`Invalid environment configuration:\n${problems}`);
   }
   return parsed.data;

@@ -19,7 +19,8 @@ export function PhoneSignIn({ submitSize = 'lg' }: { submitSize?: 'md' | 'lg' })
   const fieldError = touched && !result.ok ? t(`auth.phoneErrors.${result.reason}`) : undefined;
 
   const request = useMutation({
-    mutationFn: (e164: string) => api('/auth/otp/request', { method: 'POST', body: { phone: e164 } }),
+    mutationFn: (e164: string) =>
+      api('/auth/otp/request', { method: 'POST', body: { phone: e164 } }),
   });
 
   const onSubmit = (e: FormEvent) => {
@@ -46,7 +47,9 @@ export function PhoneSignIn({ submitSize = 'lg' }: { submitSize?: 'md' | 'lg' })
 
       {request.isError && (
         <Notice tone="danger">
-          {request.error instanceof ApiRequestError ? request.error.message : t('errors.genericTitle')}
+          {request.error instanceof ApiRequestError
+            ? request.error.message
+            : t('errors.genericTitle')}
         </Notice>
       )}
 
