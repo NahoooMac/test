@@ -1,0 +1,151 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@fontsource/noto-sans-ethiopic/400.css';
+@import '@fontsource/noto-sans-ethiopic/500.css';
+@import '@fontsource/noto-sans-ethiopic/600.css';
+@import '@fontsource/noto-sans-ethiopic/700.css';
+
+/*
+ * Design tokens. Components use the semantic Tailwind names below (bg-surface, text-ink-2, …),
+ * never raw hex values, so light/dark and accent options swap in one place.
+ *
+ * data-theme="dark"   → night mode (rider default at night; follows system elsewhere)
+ * data-accent="amber" → alternative signal colour under evaluation (default is green)
+ */
+:root {
+  color-scheme: light;
+  --c-canvas: #f5f3ee;
+  --c-surface: #ffffff;
+  --c-surface-2: #eeebe4;
+  --c-line: #e1ddd4;
+  --c-line-strong: #c3beb2;
+  --c-ink: #15171a;
+  --c-ink-2: #474b52;
+  --c-ink-3: #686c73;
+  --c-inverse: #15171a;
+  --c-inverse-ink: #f5f3ee;
+
+  --c-accent: #0e6b4a;
+  --c-accent-hover: #0a5a3e;
+  --c-accent-ink: #ffffff;
+  --c-accent-soft: #dcefe5;
+  --c-accent-soft-ink: #0a4f37;
+
+  --c-success: #1d7a46;
+  --c-success-soft: #ddf0e3;
+  --c-warning: #8f5400;
+  --c-warning-soft: #fbebcf;
+  --c-danger: #b42318;
+  --c-danger-soft: #fbe1de;
+  --c-info: #1f5aa6;
+  --c-info-soft: #dce8f7;
+  --c-focus: #1f5aa6;
+}
+
+[data-accent='amber'] {
+  --c-accent: #f0a500;
+  --c-accent-hover: #d99500;
+  --c-accent-ink: #15171a;
+  --c-accent-soft: #fcefcc;
+  --c-accent-soft-ink: #634400;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --c-canvas: #0f1113;
+  --c-surface: #181b1f;
+  --c-surface-2: #22262b;
+  --c-line: #2c3036;
+  --c-line-strong: #41464e;
+  --c-ink: #f2f1ee;
+  --c-ink-2: #babdc2;
+  --c-ink-3: #8e9299;
+  --c-inverse: #f2f1ee;
+  --c-inverse-ink: #15171a;
+
+  --c-accent: #3dbd8a;
+  --c-accent-hover: #55cc9b;
+  --c-accent-ink: #06130d;
+  --c-accent-soft: #143a2c;
+  --c-accent-soft-ink: #9be3c3;
+
+  --c-success: #4cc27e;
+  --c-success-soft: #173826;
+  --c-warning: #f0b44c;
+  --c-warning-soft: #3d2c0f;
+  --c-danger: #f2766b;
+  --c-danger-soft: #45191a;
+  --c-info: #7fb0f0;
+  --c-info-soft: #172a45;
+  --c-focus: #7fb0f0;
+}
+
+[data-theme='dark'][data-accent='amber'] {
+  --c-accent: #f5b829;
+  --c-accent-hover: #ffc845;
+  --c-accent-ink: #15171a;
+  --c-accent-soft: #3d2f0c;
+  --c-accent-soft-ink: #f8d27a;
+}
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme inline {
+  --font-sans: 'Inter Variable', 'Noto Sans Ethiopic', ui-sans-serif, system-ui, sans-serif;
+
+  --color-canvas: var(--c-canvas);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-line: var(--c-line);
+  --color-line-strong: var(--c-line-strong);
+  --color-ink: var(--c-ink);
+  --color-ink-2: var(--c-ink-2);
+  --color-ink-3: var(--c-ink-3);
+  --color-inverse: var(--c-inverse);
+  --color-inverse-ink: var(--c-inverse-ink);
+  --color-accent: var(--c-accent);
+  --color-accent-hover: var(--c-accent-hover);
+  --color-accent-ink: var(--c-accent-ink);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-accent-soft-ink: var(--c-accent-soft-ink);
+  --color-success: var(--c-success);
+  --color-success-soft: var(--c-success-soft);
+  --color-warning: var(--c-warning);
+  --color-warning-soft: var(--c-warning-soft);
+  --color-danger: var(--c-danger);
+  --color-danger-soft: var(--c-danger-soft);
+  --color-info: var(--c-info);
+  --color-info-soft: var(--c-info-soft);
+  --color-focus: var(--c-focus);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  :focus-visible {
+    outline: 2px solid var(--c-focus);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}

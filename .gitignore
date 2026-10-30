@@ -1,0 +1,23 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Local secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Local embedded Postgres data (PGlite)
+.data/
+
+# Editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Test output
+playwright-report/
+test-results/
