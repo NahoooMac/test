@@ -485,39 +485,27 @@
         "deliveries_customer_id_users_id_fk": {
           "name": "deliveries_customer_id_users_id_fk",
           "tableFrom": "deliveries",
-          "columnsFrom": [
-            "customer_id"
-          ],
+          "columnsFrom": ["customer_id"],
           "tableTo": "users",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "restrict"
         },
         "deliveries_rider_id_riders_user_id_fk": {
           "name": "deliveries_rider_id_riders_user_id_fk",
           "tableFrom": "deliveries",
-          "columnsFrom": [
-            "rider_id"
-          ],
+          "columnsFrom": ["rider_id"],
           "tableTo": "riders",
-          "columnsTo": [
-            "user_id"
-          ],
+          "columnsTo": ["user_id"],
           "onUpdate": "no action",
           "onDelete": "restrict"
         },
         "deliveries_pricing_rule_id_pricing_rules_id_fk": {
           "name": "deliveries_pricing_rule_id_pricing_rules_id_fk",
           "tableFrom": "deliveries",
-          "columnsFrom": [
-            "pricing_rule_id"
-          ],
+          "columnsFrom": ["pricing_rule_id"],
           "tableTo": "pricing_rules",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "no action"
         }
@@ -648,26 +636,18 @@
         "delivery_events_delivery_id_deliveries_id_fk": {
           "name": "delivery_events_delivery_id_deliveries_id_fk",
           "tableFrom": "delivery_events",
-          "columnsFrom": [
-            "delivery_id"
-          ],
+          "columnsFrom": ["delivery_id"],
           "tableTo": "deliveries",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "delivery_events_actor_user_id_users_id_fk": {
           "name": "delivery_events_actor_user_id_users_id_fk",
           "tableFrom": "delivery_events",
-          "columnsFrom": [
-            "actor_user_id"
-          ],
+          "columnsFrom": ["actor_user_id"],
           "tableTo": "users",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "no action"
         }
@@ -933,13 +913,9 @@
         "pricing_rules_created_by_users_id_fk": {
           "name": "pricing_rules_created_by_users_id_fk",
           "tableFrom": "pricing_rules",
-          "columnsFrom": [
-            "created_by"
-          ],
+          "columnsFrom": ["created_by"],
           "tableTo": "users",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "no action"
         }
@@ -1004,10 +980,7 @@
       "compositePrimaryKeys": {
         "rate_limit_buckets_key_window_start_pk": {
           "name": "rate_limit_buckets_key_window_start_pk",
-          "columns": [
-            "key",
-            "window_start"
-          ]
+          "columns": ["key", "window_start"]
         }
       },
       "uniqueConstraints": {},
@@ -1119,13 +1092,9 @@
         "riders_user_id_users_id_fk": {
           "name": "riders_user_id_users_id_fk",
           "tableFrom": "riders",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "users",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "restrict"
         }
@@ -1295,13 +1264,9 @@
         "sessions_user_id_users_id_fk": {
           "name": "sessions_user_id_users_id_fk",
           "tableFrom": "sessions",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "users",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -1463,13 +1428,9 @@
         "sms_messages_challenge_id_otp_challenges_id_fk": {
           "name": "sms_messages_challenge_id_otp_challenges_id_fk",
           "tableFrom": "sms_messages",
-          "columnsFrom": [
-            "challenge_id"
-          ],
+          "columnsFrom": ["challenge_id"],
           "tableTo": "otp_challenges",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "set null"
         }
@@ -1585,12 +1546,7 @@
     "public.actor_role": {
       "name": "actor_role",
       "schema": "public",
-      "values": [
-        "customer",
-        "rider",
-        "admin",
-        "system"
-      ]
+      "values": ["customer", "rider", "admin", "system"]
     },
     "public.delivery_status": {
       "name": "delivery_status",
@@ -1611,99 +1567,57 @@
     "public.lockout_scope": {
       "name": "lockout_scope",
       "schema": "public",
-      "values": [
-        "phone",
-        "ip"
-      ]
+      "values": ["phone", "ip"]
     },
     "public.otp_close_reason": {
       "name": "otp_close_reason",
       "schema": "public",
-      "values": [
-        "consumed",
-        "expired",
-        "max_attempts",
-        "superseded"
-      ]
+      "values": ["consumed", "expired", "max_attempts", "superseded"]
     },
     "public.otp_purpose": {
       "name": "otp_purpose",
       "schema": "public",
-      "values": [
-        "login"
-      ]
+      "values": ["login"]
     },
     "public.parcel_size": {
       "name": "parcel_size",
       "schema": "public",
-      "values": [
-        "small",
-        "medium",
-        "large"
-      ]
+      "values": ["small", "medium", "large"]
     },
     "public.payer": {
       "name": "payer",
       "schema": "public",
-      "values": [
-        "sender",
-        "receiver"
-      ]
+      "values": ["sender", "receiver"]
     },
     "public.payment_method": {
       "name": "payment_method",
       "schema": "public",
-      "values": [
-        "cash",
-        "telebirr",
-        "cbe_birr"
-      ]
+      "values": ["cash", "telebirr", "cbe_birr"]
     },
     "public.rider_approval": {
       "name": "rider_approval",
       "schema": "public",
-      "values": [
-        "pending",
-        "approved",
-        "rejected",
-        "suspended"
-      ]
+      "values": ["pending", "approved", "rejected", "suspended"]
     },
     "public.sms_status": {
       "name": "sms_status",
       "schema": "public",
-      "values": [
-        "queued",
-        "sent",
-        "failed",
-        "delivered",
-        "undelivered"
-      ]
+      "values": ["queued", "sent", "failed", "delivered", "undelivered"]
     },
     "public.user_role": {
       "name": "user_role",
       "schema": "public",
-      "values": [
-        "customer",
-        "rider",
-        "admin"
-      ]
+      "values": ["customer", "rider", "admin"]
     },
     "public.user_status": {
       "name": "user_status",
       "schema": "public",
-      "values": [
-        "active",
-        "suspended"
-      ]
+      "values": ["active", "suspended"]
     },
     "public.vehicle_type": {
       "name": "vehicle_type",
       "schema": "public",
-      "values": [
-        "motorcycle",
-        "bicycle"
-      ]
+      "values": ["motorcycle", "bicycle"]
     }
   },
   "schemas": {},

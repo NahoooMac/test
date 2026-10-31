@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronRight, Package } from 'lucide-react';
 import type { DeliverySummary } from '@dp/shared';
 import { api } from '../../lib/api.ts';
+import { pollEvery } from '../../lib/live.ts';
 import { Badge, Button, EmptyState, ErrorState, Skeleton } from '../../ui/index.ts';
 import { isOpen, STATUS_TONE } from './status.ts';
 
@@ -11,7 +12,8 @@ export function useDeliveries() {
   return useQuery({
     queryKey: ['deliveries'],
     queryFn: () => api<DeliverySummary[]>('/deliveries'),
-    refetchInterval: (q) => (q.state.data?.some((d) => isOpen(d.status)) ? 30_000 : false),
+    refetchInterval: (q) =>
+      q.state.data?.some((d) => isOpen(d.status)) ? pollEvery(30_000, 120_000) : false,
   });
 }
 

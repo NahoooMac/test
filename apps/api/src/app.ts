@@ -19,6 +19,9 @@ import { Dispatcher, type DispatchOptions } from './modules/dispatch/dispatcher.
 import { RiderService } from './modules/riders/service.ts';
 import { riderRoutes } from './modules/riders/routes.ts';
 import { adminRiderRoutes } from './modules/admin/riders.ts';
+import { adminOpsRoutes } from './modules/admin/ops.ts';
+import { RealtimeHub } from './modules/realtime/hub.ts';
+import { realtimeRoutes } from './modules/realtime/routes.ts';
 
 export interface AppDeps {
   config: Config;
@@ -72,23 +75,35 @@ export async function buildApp({
     log: app.log,
   });
   const auth = createAuthenticator(sessions, config);
-  const dispatcher = new Dispatcher(db, clock, app.log, dispatch);
-  const deliveries = new DeliveryService(db, clock, (id) => dispatcher.dispatch(id));
-  const riders = new RiderService(db, clock);
+  const hub = new RealtimeHub(db, app.log);
+  app.addHook('onClose', async () => hub.close());
+  const dispatcher = new Dispatcher(db, clock, app.log, dispatch, hub);
+  const deliveries = new DeliveryService(db, clock, (id) => dispatcher.dispatch(id), hub);
+  const riders = new RiderService(db, clock, hub);
   const geoProvider = geo ?? createGeoProvider(config);
 
   await app.register(
     async (api) => {
       registerCsrfGuard(api, config);
       await api.register(healthRoutes, { database });
-      await api.register(authRoutes, { db, config, clock, otp, sessions, auth });
+      await api.register(authRoutes, {
+        db,
+        config,
+        clock,
+        otp,
+        sessions,
+        auth,
+        onSessionRevoked: (id) => hub.closeSession(id),
+      });
       await api.register(deliveryRoutes, { db, clock, auth, deliveries });
       await api.register(geoRoutes, { db, clock, auth, geo: geoProvider });
       await api.register(riderRoutes, { db, clock, auth, riders, dispatcher });
-      await api.register(adminRiderRoutes, { db, clock, auth });
+      await api.register(adminRiderRoutes, { db, clock, auth, realtime: hub });
+      await api.register(adminOpsRoutes, { db, clock, auth });
+      await api.register(realtimeRoutes, { db, clock, auth, hub });
     },
     { prefix: '/api' },
   );
 
-  return { app, dispatcher };
+  return { app, dispatcher, hub };
 }

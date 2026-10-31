@@ -6,6 +6,7 @@ import { RequireRole, useSession, useSignOut } from '../../lib/session.tsx';
 import { useTheme } from '../../lib/theme.ts';
 import { SignInFlow } from '../../features/auth/SignInFlow.tsx';
 import { RidersAdmin } from '../../features/admin/RidersAdmin.tsx';
+import { LiveOps } from '../../features/admin/LiveOps.tsx';
 import { LanguageToggle } from '../../features/auth/LanguageToggle.tsx';
 import { EmptyState, cn } from '../../ui/index.ts';
 import { Wordmark } from '../Wordmark.tsx';
@@ -22,14 +23,9 @@ export default function AdminApp() {
           </RequireRole>
         }
       >
-        <Route
-          index
-          element={
-            <EmptyState title="No riders online" body="Riders appear here when they go online." />
-          }
-        />
+        <Route index element={<LiveOps />} />
         <Route path="riders" element={<RidersAdmin />} />
-        <Route path="*" element={<EmptyState title="Coming in Phase 4" />} />
+        <Route path="*" element={<EmptyState title="Coming in Phase 4d" />} />
       </Route>
     </Routes>
   );

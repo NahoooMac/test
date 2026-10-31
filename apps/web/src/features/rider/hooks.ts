@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { RiderHome } from '@dp/shared';
 import { api } from '../../lib/api.ts';
+import { pollEvery } from '../../lib/live.ts';
 
 export const riderHomeKey = ['rider', 'home'] as const;
 
 /**
- * Rider state: profile, open offer and active job. Polled until live updates arrive (Phase 4c):
- * every 4 s while online or on a job, otherwise every 30 s.
+ * Rider state: profile, open offer and active job. Live events refresh it instantly; polling is the
+ * fallback (every 4 s while online if the live stream is down, otherwise every 30 s).
  */
 export function useRiderHome(enabled = true) {
   return useQuery({
@@ -16,7 +17,7 @@ export function useRiderHome(enabled = true) {
     enabled,
     refetchInterval: (q) => {
       const d = q.state.data;
-      return d && (d.profile?.isOnline || d.job) ? 4000 : 30_000;
+      return d && (d.profile?.isOnline || d.job) ? pollEvery(4000, 30_000) : 30_000;
     },
     refetchIntervalInBackground: true,
   });

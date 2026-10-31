@@ -2,6 +2,7 @@ import { randomInt } from 'node:crypto';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import type { createDeliverySchema } from '@dp/shared';
 import {
+  ACTIVE_RIDER_STATUSES,
   VEHICLE_TYPES,
   roundCoord,
   type ActorRole,
@@ -23,6 +24,7 @@ import {
   users,
 } from '../../db/schema.ts';
 import type { Clock } from '../../shared/clock.ts';
+import { noopRealtime, type Realtime } from '../realtime/hub.ts';
 import { AppError, isUniqueViolation } from '../../shared/errors.ts';
 import { computeFare, estimateRoadKm, etaMinutes, unavailableReason } from '../pricing/pricing.ts';
 import { currentRule, currentRules } from '../pricing/repo.ts';
@@ -45,14 +47,17 @@ export class DeliveryService {
   private readonly db: Db;
   private readonly clock: Clock;
   private readonly afterCreate: (deliveryId: string) => Promise<unknown>;
+  private readonly realtime: Realtime;
 
   /** `afterCreate` runs once a booking is committed (dispatch); its failure never fails the booking. */
   constructor(
     db: Db,
     clock: Clock,
     afterCreate: (deliveryId: string) => Promise<unknown> = async () => {},
+    realtime: Realtime = noopRealtime,
   ) {
     this.afterCreate = afterCreate;
+    this.realtime = realtime;
     this.db = db;
     this.clock = clock;
   }
@@ -145,6 +150,7 @@ export class DeliveryService {
           await this.recordEvent(tx, row!.id, null, 'requested', 'customer', customerId, null);
           return row!.id;
         });
+        this.realtime.publish({ type: 'ops', data: { deliveryId: id } }, { admins: true });
         try {
           await this.afterCreate(id);
         } catch {
@@ -243,6 +249,7 @@ export class DeliveryService {
         },
       );
     });
+    await this.realtime.deliveryChanged(id);
     return this.getForCustomer(customerId, id);
   }
 
@@ -285,7 +292,13 @@ export class DeliveryService {
         d: deliveries,
         feeAfterArrival: pricingRules.cancellationFeeAfterArrival,
         // Drizzle decides a left-joined object is null from its FIRST column, so lead with a NOT NULL one.
-        rider: { vehicleType: riders.vehicleType, plate: riders.plateNumber },
+        rider: {
+          vehicleType: riders.vehicleType,
+          plate: riders.plateNumber,
+          lat: riders.currentLat,
+          lng: riders.currentLng,
+          locatedAt: riders.locationUpdatedAt,
+        },
         riderUser: { phone: riderUsers.phoneE164, name: riderUsers.fullName },
       })
       .from(deliveries)
@@ -337,6 +350,13 @@ export class DeliveryService {
               vehicleType: r.rider.vehicleType,
               plate: r.rider.plate,
             }
+          : null,
+      riderLocation:
+        r.rider?.lat != null &&
+        r.rider.lng != null &&
+        r.rider.locatedAt &&
+        (ACTIVE_RIDER_STATUSES as readonly string[]).includes(d.status)
+          ? { lat: r.rider.lat, lng: r.rider.lng, at: r.rider.locatedAt.toISOString() }
           : null,
       createdAt: d.createdAt.toISOString(),
       updatedAt: d.updatedAt.toISOString(),

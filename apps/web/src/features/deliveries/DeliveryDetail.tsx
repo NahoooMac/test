@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, Phone } from 'lucide-react';
+import { ChevronLeft, Phone, Share2 } from 'lucide-react';
 import { formatPhone, type Delivery } from '@dp/shared';
 import { api, ApiRequestError } from '../../lib/api.ts';
+import { pollEvery } from '../../lib/live.ts';
 import { MapView } from '../../map/MapView.tsx';
 import {
   Badge,
@@ -33,8 +34,9 @@ export function DeliveryDetail() {
   const delivery = useQuery({
     queryKey: ['delivery', id],
     queryFn: () => api<Delivery>(`/deliveries/${id}`),
-    // Until live updates arrive (Phase 4c), poll while the delivery is in progress.
-    refetchInterval: (q) => (q.state.data && isOpen(q.state.data.status) ? 15_000 : false),
+    // Live events refresh this instantly; polling is the fallback when the stream is down.
+    refetchInterval: (q) =>
+      q.state.data && isOpen(q.state.data.status) ? pollEvery(15_000) : false,
   });
 
   const cancel = useMutation({
@@ -94,6 +96,9 @@ export function DeliveryDetail() {
           markers={[
             { id: 'p', point: d.pickup, kind: 'pickup' },
             { id: 'd', point: d.dropoff, kind: 'dropoff' },
+            ...(d.riderLocation
+              ? [{ id: 'r', point: d.riderLocation, kind: 'rider' as const }]
+              : []),
           ]}
           line={[d.pickup, d.dropoff]}
           fit
@@ -124,6 +129,27 @@ export function DeliveryDetail() {
           />
         )}
         {d.status === 'requested' && <Notice tone="info">{t('delivery.waiting')}</Notice>}
+        {isOpen(d.status) && (
+          <Button
+            variant="secondary"
+            icon={<Share2 className="size-4" aria-hidden />}
+            onClick={async () => {
+              const url = `${location.origin}/t/${d.code}`;
+              const text = t('delivery.shareText', { code: d.code });
+              try {
+                if (navigator.share) await navigator.share({ title: text, text, url });
+                else {
+                  await navigator.clipboard.writeText(url);
+                  toast(t('delivery.linkCopied'), 'success');
+                }
+              } catch {
+                // share sheet dismissed
+              }
+            }}
+          >
+            {t('delivery.share')}
+          </Button>
+        )}
 
         {d.rider && (
           <Panel className="flex items-center gap-3 p-3">

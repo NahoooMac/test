@@ -11,6 +11,7 @@ import { deliveryOffers, riders, users } from '../../db/schema.ts';
 import type { Clock } from '../../shared/clock.ts';
 import { AppError, parseInput } from '../../shared/errors.ts';
 import type { Authenticator } from '../auth/http.ts';
+import type { Realtime } from '../realtime/hub.ts';
 
 const listQuery = z.object({ status: z.enum(RIDER_APPROVAL_STATUSES).optional() });
 
@@ -24,9 +25,9 @@ const DECISIONS: Record<string, { from: RiderApprovalStatus[]; to: RiderApproval
 
 export async function adminRiderRoutes(
   app: FastifyInstance,
-  deps: { db: Db; clock: Clock; auth: Authenticator },
+  deps: { db: Db; clock: Clock; auth: Authenticator; realtime: Realtime },
 ) {
-  const { db, clock, auth } = deps;
+  const { db, clock, auth, realtime } = deps;
 
   app.get('/admin/riders', async (req, reply) => {
     await auth.require(req, reply, 'admin');
@@ -98,6 +99,8 @@ export async function adminRiderRoutes(
       }
     });
     req.log.info({ admin: admin.id, rider: req.params.id, decision }, 'rider decision');
+    realtime.notifyUser(req.params.id, 'rider', { decision });
+    realtime.publish({ type: 'ops', data: { riderId: req.params.id } }, { admins: true });
     return reply.status(204).send();
   });
 }

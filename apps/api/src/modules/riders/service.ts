@@ -24,6 +24,7 @@ import {
 import type { Clock } from '../../shared/clock.ts';
 import { AppError, isUniqueViolation, violatedConstraint } from '../../shared/errors.ts';
 import { canTransition, STATUS_TIMESTAMP } from '../deliveries/state-machine.ts';
+import { noopRealtime, type Realtime } from '../realtime/hub.ts';
 
 type DeliveryRow = typeof deliveries.$inferSelect;
 
@@ -34,10 +35,12 @@ const notApproved = () =>
 export class RiderService {
   private readonly db: Db;
   private readonly clock: Clock;
+  private readonly realtime: Realtime;
 
-  constructor(db: Db, clock: Clock) {
+  constructor(db: Db, clock: Clock, realtime: Realtime = noopRealtime) {
     this.db = db;
     this.clock = clock;
+    this.realtime = realtime;
   }
 
   // ── Application ────────────────────────────────────────────────────────────
@@ -88,6 +91,7 @@ export class RiderService {
         throw err;
       }
     });
+    this.realtime.publish({ type: 'ops', data: { riderId: userId } }, { admins: true });
     return (await this.profile(userId))!;
   }
 
@@ -129,6 +133,7 @@ export class RiderService {
         .set({ status: 'declined', respondedAt: this.clock.now() })
         .where(and(eq(deliveryOffers.riderId, userId), eq(deliveryOffers.status, 'offered')));
     }
+    this.realtime.publish({ type: 'ops', data: { riderId: userId } }, { admins: true });
     return (await this.profile(userId))!;
   }
 
@@ -140,6 +145,24 @@ export class RiderService {
       .where(and(eq(riders.userId, userId), eq(riders.approvalStatus, 'approved')))
       .returning({ id: riders.userId });
     if (updated.length === 0) throw notApproved();
+
+    // Customer, public tracking page and admins follow the rider while a job is in progress.
+    const [job] = await this.db
+      .select({ id: deliveries.id, customerId: deliveries.customerId, code: deliveries.publicCode })
+      .from(deliveries)
+      .where(
+        and(eq(deliveries.riderId, userId), inArray(deliveries.status, [...ACTIVE_RIDER_STATUSES])),
+      )
+      .limit(1);
+    const point = { lat, lng, at: now.toISOString() };
+    if (job) {
+      this.realtime.publish(
+        { type: 'location', data: { deliveryId: job.id, riderId: userId, ...point } },
+        { userIds: [job.customerId], admins: true, publicCode: job.code },
+      );
+    } else {
+      this.realtime.publish({ type: 'ops', data: { riderId: userId, ...point } }, { admins: true });
+    }
   }
 
   // ── Home: offer + active job ───────────────────────────────────────────────
@@ -289,6 +312,7 @@ export class RiderService {
         });
         return offer.deliveryId;
       });
+      await this.realtime.deliveryChanged(deliveryId);
       const [d] = await this.db.select().from(deliveries).where(eq(deliveries.id, deliveryId));
       return this.toJob(d!);
     } catch (err) {
@@ -351,6 +375,8 @@ export class RiderService {
       if (!updated.length) throw stale();
       await recordEvent(tx, d.id, d.status, 'requested', 'rider', userId, now, { released: true });
     });
+    await this.realtime.deliveryChanged(d.id);
+    this.realtime.notifyUser(userId, 'delivery', { id: d.id });
     const [after] = await this.db.select().from(deliveries).where(eq(deliveries.id, d.id));
     return this.toJob(after!);
   }
@@ -416,6 +442,7 @@ export class RiderService {
       });
       await recordEvent(tx, d.id, 'failed', 'returning', 'system', null, now);
     });
+    await this.realtime.deliveryChanged(d.id);
     return this.toJob((await this.ownJob(userId, deliveryId, true))!);
   }
 
@@ -484,6 +511,7 @@ export class RiderService {
       if (!updated.length) throw stale();
       await recordEvent(tx, d.id, d.status, to, actor, actorUserId, now, undefined, at);
     });
+    await this.realtime.deliveryChanged(d.id);
   }
 }
 

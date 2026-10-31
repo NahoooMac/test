@@ -165,6 +165,10 @@ export const en = {
     call: 'Call',
     active: 'In progress',
     recent: 'Recent',
+    share: 'Share tracking link',
+    shareText: 'Track parcel {{code}}',
+    linkCopied: 'Tracking link copied.',
+    eta: 'Estimated trip',
     notFound: "We couldn't find that delivery.",
   },
   rider: {

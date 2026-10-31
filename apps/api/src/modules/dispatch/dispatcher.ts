@@ -12,6 +12,7 @@ import type { Db } from '../../db/client.ts';
 import { deliveries, deliveryOffers, riders } from '../../db/schema.ts';
 import { addSeconds, type Clock } from '../../shared/clock.ts';
 import { isUniqueViolation, violatedConstraint } from '../../shared/errors.ts';
+import { noopRealtime, type Realtime } from '../realtime/hub.ts';
 
 export interface DispatchOptions {
   /** Seconds a rider has to accept. */
@@ -35,9 +36,17 @@ export class Dispatcher {
   private readonly clock: Clock;
   private readonly log: FastifyBaseLogger;
   private readonly opts: DispatchOptions;
+  private readonly realtime: Realtime;
   private ticking = false;
 
-  constructor(db: Db, clock: Clock, log: FastifyBaseLogger, opts: Partial<DispatchOptions> = {}) {
+  constructor(
+    db: Db,
+    clock: Clock,
+    log: FastifyBaseLogger,
+    opts: Partial<DispatchOptions> = {},
+    realtime: Realtime = noopRealtime,
+  ) {
+    this.realtime = realtime;
     this.db = db;
     this.clock = clock;
     this.log = log;
@@ -107,6 +116,8 @@ export class Dispatcher {
           expiresAt: addSeconds(now, this.opts.offerTtlSec),
         });
         this.log.info({ deliveryId, riderId: c.riderId, km: c.km.toFixed(2) }, 'offer sent');
+        this.realtime.notifyUser(c.riderId, 'offer', { deliveryId });
+        this.realtime.publish({ type: 'ops', data: { deliveryId } }, { admins: true });
         return 'offered';
       } catch (err) {
         if (!isUniqueViolation(err)) throw err;
@@ -134,7 +145,8 @@ export class Dispatcher {
         .update(deliveryOffers)
         .set({ status: 'expired', respondedAt: now })
         .where(and(eq(deliveryOffers.status, 'offered'), lt(deliveryOffers.expiresAt, now)))
-        .returning({ id: deliveryOffers.id });
+        .returning({ id: deliveryOffers.id, riderId: deliveryOffers.riderId });
+      for (const e of expired) this.realtime.notifyUser(e.riderId, 'offer', { expired: true });
 
       const waiting = await this.db
         .select({ id: deliveries.id })

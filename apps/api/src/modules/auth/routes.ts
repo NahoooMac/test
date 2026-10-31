@@ -24,12 +24,14 @@ export interface AuthRouteDeps {
   otp: OtpService;
   sessions: SessionService;
   auth: Authenticator;
+  /** Called after a session is revoked, e.g. to close its live event streams. */
+  onSessionRevoked?: (sessionId: string) => void;
 }
 
 const context = (req: FastifyRequest) => ({ ip: req.ip, userAgent: req.headers['user-agent'] });
 
 export async function authRoutes(app: FastifyInstance, deps: AuthRouteDeps) {
-  const { db, config, clock, otp, sessions, auth } = deps;
+  const { db, config, clock, otp, sessions, auth, onSessionRevoked } = deps;
 
   app.post('/auth/otp/request', async (req): Promise<OtpChallenge> => {
     const body = parseInput(otpRequestBodySchema, req.body);
@@ -63,7 +65,10 @@ export async function authRoutes(app: FastifyInstance, deps: AuthRouteDeps) {
 
   app.post('/auth/logout', async (req, reply) => {
     const current = await auth.optional(req, reply);
-    if (current) await sessions.revoke(current.session.id, 'logout');
+    if (current) {
+      await sessions.revoke(current.session.id, 'logout');
+      onSessionRevoked?.(current.session.id);
+    }
     clearSessionCookie(reply, config);
     return reply.status(204).send();
   });

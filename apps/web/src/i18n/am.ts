@@ -167,6 +167,10 @@ export const am: Messages = {
     call: 'ደውል',
     active: 'በሂደት ላይ',
     recent: 'የቅርብ ጊዜ',
+    share: 'የመከታተያ ሊንክ አጋራ',
+    shareText: 'እቃ {{code}} ይከታተሉ',
+    linkCopied: 'የመከታተያ ሊንኩ ተቀድቷል።',
+    eta: 'የተገመተ የጉዞ ጊዜ',
     notFound: 'ይህን ትዕዛዝ ማግኘት አልቻልንም።',
   },
   rider: {

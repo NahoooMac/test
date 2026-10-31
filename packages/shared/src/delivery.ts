@@ -163,6 +163,8 @@ export const deliverySchema = z.object({
       plate: z.string().nullable(),
     })
     .nullable(),
+  /** Last known rider position while the job is in progress; null otherwise. */
+  riderLocation: z.object({ lat: z.number(), lng: z.number(), at: z.string() }).nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
   events: z.array(deliveryEventSchema),
@@ -175,3 +177,38 @@ export type DeliverySummary = z.infer<typeof deliverySummarySchema>;
 export const cancelDeliverySchema = z.object({
   reason: z.string().trim().max(200).optional(),
 });
+
+// ── Public tracking (shareable link, no sign-in) ─────────────────────────────
+
+/** Deliberately limited: no sender/receiver phone numbers, no prices. */
+export const publicTrackingSchema = z.object({
+  code: z.string(),
+  status: z.enum(DELIVERY_STATUSES),
+  vehicleType: z.enum(VEHICLE_TYPES),
+  etaMin: z.number().int(),
+  pickup: z.object({
+    address: z.string(),
+    subCity: z.string().nullable(),
+    lat: z.number(),
+    lng: z.number(),
+  }),
+  dropoff: z.object({
+    address: z.string(),
+    subCity: z.string().nullable(),
+    lat: z.number(),
+    lng: z.number(),
+  }),
+  rider: z
+    .object({
+      firstName: z.string().nullable(),
+      vehicleType: z.enum(VEHICLE_TYPES),
+      plate: z.string().nullable(),
+      /** Only while the rider is on the way, so the receiver can call. */
+      phone: z.string().nullable(),
+    })
+    .nullable(),
+  riderLocation: z.object({ lat: z.number(), lng: z.number(), at: z.string() }).nullable(),
+  timeline: z.array(z.object({ status: z.enum(DELIVERY_STATUSES), at: z.string() })),
+  updatedAt: z.string(),
+});
+export type PublicTracking = z.infer<typeof publicTrackingSchema>;
