@@ -12,6 +12,7 @@ import type { Clock } from '../../shared/clock.ts';
 import { AppError, parseInput } from '../../shared/errors.ts';
 import type { Authenticator } from '../auth/http.ts';
 import type { Realtime } from '../realtime/hub.ts';
+import { audit } from './audit.ts';
 
 const listQuery = z.object({ status: z.enum(RIDER_APPROVAL_STATUSES).optional() });
 
@@ -98,6 +99,13 @@ export async function adminRiderRoutes(
           );
       }
     });
+    await audit(
+      db,
+      admin.id,
+      `rider.${decision}`,
+      { type: 'rider', id: req.params.id },
+      { reason },
+    );
     req.log.info({ admin: admin.id, rider: req.params.id, decision }, 'rider decision');
     realtime.notifyUser(req.params.id, 'rider', { decision });
     realtime.publish({ type: 'ops', data: { riderId: req.params.id } }, { admins: true });

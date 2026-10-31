@@ -177,6 +177,20 @@ export function RiderEarnings() {
       >('/rider/jobs'),
   });
   const today = new Date().toDateString();
+  const ledger = useQuery({
+    queryKey: ['rider', 'ledger'],
+    queryFn: () =>
+      api<{
+        balance: string;
+        entries: Array<{
+          id: string;
+          type: 'commission' | 'settlement' | 'adjustment';
+          amount: string;
+          deliveryCode: string | null;
+          createdAt: string;
+        }>;
+      }>('/rider/ledger'),
+  });
   const done = jobs.data?.filter((j) => ['delivered', 'returned'].includes(j.status)) ?? [];
   const todaySum = done
     .filter((j) => new Date(j.updatedAt).toDateString() === today)
@@ -191,6 +205,33 @@ export function RiderEarnings() {
           {(todaySum / 100).toFixed(2)} <span className="text-base font-semibold">ETB</span>
         </p>
       </div>
+      {ledger.data && (
+        <Panel className="p-4">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="font-semibold">{t('rider.earnings.owed')}</p>
+            <p className="text-xl font-bold tabular">{ledger.data.balance} ETB</p>
+          </div>
+          <p className="mt-1 text-sm text-ink-3">{t('rider.earnings.owedHint')}</p>
+          {ledger.data.entries.length > 0 && (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-sm font-semibold text-ink-2">
+                {t('rider.earnings.history')}
+              </summary>
+              <ul className="mt-2 divide-y divide-line text-sm">
+                {ledger.data.entries.map((e) => (
+                  <li key={e.id} className="flex justify-between gap-3 py-2">
+                    <span>
+                      {t(`rider.earnings.types.${e.type}`)}
+                      {e.deliveryCode ? ` · #${e.deliveryCode}` : ''}
+                    </span>
+                    <span className="tabular">{e.amount}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </Panel>
+      )}
       {jobs.isPending && <Skeleton className="h-24 w-full" />}
       {jobs.data && jobs.data.length === 0 && (
         <EmptyState title={t('rider.earnings.title')} body={t('rider.earnings.empty')} />

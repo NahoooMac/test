@@ -7,12 +7,13 @@ import {
   subCityName,
   type ContactOutcome,
   type DeliveryStatus,
+  type PaymentMethod,
   type RiderJob,
 } from '@dp/shared';
 import { api, ApiRequestError } from '../../lib/api.ts';
 import { formatClock, useCountdown } from '../../lib/useCountdown.ts';
 import { MapView, type MapMarker } from '../../map/MapView.tsx';
-import { Badge, Button, Notice, Panel, Timeline } from '../../ui/index.ts';
+import { Badge, Button, ChoiceGroup, Notice, Panel, TextField, Timeline } from '../../ui/index.ts';
 import { STATUS_TONE } from '../deliveries/status.ts';
 import { riderHomeKey } from './hooks.ts';
 
@@ -90,6 +91,8 @@ export function ActiveJob({
   const collectHere =
     (job.payer === 'sender' && job.status === 'arrived_pickup') ||
     (job.payer === 'receiver' && job.status === 'arrived_dropoff');
+  // The server refuses "delivered" until the fare is recorded; mirror that so the rider knows why.
+  const needsPayment = next === 'delivered' && !job.farePayment;
   const error = step.error ?? release.error ?? fail.error ?? logCall.error;
   const time = (iso: string) =>
     new Date(iso).toLocaleTimeString(i18n.language === 'am' ? 'am-ET' : 'en-GB', {
@@ -157,13 +160,14 @@ export function ActiveJob({
           </div>
         </Panel>
 
-        {collectHere && (
-          <Notice tone="info">
-            {t('rider.job.collectCash', {
-              amount: job.fare,
-              method: t(`booking.methods.${job.preferredPaymentMethod}`),
+        {job.farePayment ? (
+          <Notice tone="success">
+            {t('rider.job.payment.recorded', {
+              method: t(`booking.methods.${job.farePayment.method}`),
             })}
           </Notice>
+        ) : (
+          collectHere && <PaymentPanel job={job} onDone={refresh} />
         )}
 
         {job.status === 'arrived_dropoff' && (
@@ -244,11 +248,71 @@ export function ActiveJob({
 
       {next && (
         <div className="sticky bottom-0 border-t border-line bg-surface px-4 pt-3 pb-3">
-          <Button size="lg" block onClick={() => step.mutate(next)} loading={step.isPending}>
+          {needsPayment && (
+            <p className="mb-2 text-center text-sm text-ink-3">{t('rider.job.payment.needed')}</p>
+          )}
+          <Button
+            size="lg"
+            block
+            onClick={() => step.mutate(next)}
+            loading={step.isPending}
+            disabled={needsPayment}
+          >
             {t(`rider.job.actions.${next}`)}
           </Button>
         </div>
       )}
     </div>
+  );
+}
+
+/** Rider confirms how the fare was paid to them. Safe to tap twice: the server records it once. */
+function PaymentPanel({ job, onDone }: { job: RiderJob; onDone: () => void }) {
+  const { t } = useTranslation();
+  const [method, setMethod] = useState<PaymentMethod>(job.preferredPaymentMethod);
+  const [reference, setReference] = useState('');
+  const record = useMutation({
+    mutationFn: () =>
+      api(`/rider/jobs/${job.id}/payment`, {
+        method: 'POST',
+        body: { method, reference: reference.trim() || undefined },
+      }),
+    onSettled: onDone,
+  });
+  return (
+    <Panel className="flex flex-col gap-4 p-4">
+      <div>
+        <p className="font-semibold">{t('rider.job.payment.title')}</p>
+        <p className="text-sm text-ink-2">
+          {t('rider.job.collectCash', {
+            amount: job.fare,
+            method: t(`booking.methods.${job.preferredPaymentMethod}`),
+          })}
+        </p>
+      </div>
+      <ChoiceGroup
+        legend={t('rider.job.payment.method')}
+        columns={3}
+        value={method}
+        onChange={setMethod}
+        choices={(['cash', 'telebirr', 'cbe_birr'] as const).map((m) => ({
+          value: m,
+          label: t(`booking.methods.${m}`),
+        }))}
+      />
+      {method !== 'cash' && (
+        <TextField
+          label={t('rider.job.payment.reference')}
+          value={reference}
+          onChange={(e) => setReference(e.target.value)}
+          maxLength={60}
+          autoCapitalize="characters"
+        />
+      )}
+      {record.isError && <Notice tone="danger">{(record.error as Error).message}</Notice>}
+      <Button size="lg" block onClick={() => record.mutate()} loading={record.isPending}>
+        {t('rider.job.payment.received')}
+      </Button>
+    </Panel>
   );
 }

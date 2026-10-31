@@ -22,6 +22,10 @@ import { adminRiderRoutes } from './modules/admin/riders.ts';
 import { adminOpsRoutes } from './modules/admin/ops.ts';
 import { RealtimeHub } from './modules/realtime/hub.ts';
 import { realtimeRoutes } from './modules/realtime/routes.ts';
+import { PaymentService } from './modules/payments/service.ts';
+import { adminDeliveryRoutes } from './modules/admin/deliveries.ts';
+import { adminFinanceRoutes } from './modules/admin/finance.ts';
+import { adminUserRoutes } from './modules/admin/users.ts';
 
 export interface AppDeps {
   config: Config;
@@ -78,8 +82,9 @@ export async function buildApp({
   const hub = new RealtimeHub(db, app.log);
   app.addHook('onClose', async () => hub.close());
   const dispatcher = new Dispatcher(db, clock, app.log, dispatch, hub);
-  const deliveries = new DeliveryService(db, clock, (id) => dispatcher.dispatch(id), hub);
-  const riders = new RiderService(db, clock, hub);
+  const payments = new PaymentService(db, clock);
+  const deliveries = new DeliveryService(db, clock, (id) => dispatcher.dispatch(id), hub, payments);
+  const riders = new RiderService(db, clock, hub, payments);
   const geoProvider = geo ?? createGeoProvider(config);
 
   await app.register(
@@ -100,6 +105,22 @@ export async function buildApp({
       await api.register(riderRoutes, { db, clock, auth, riders, dispatcher });
       await api.register(adminRiderRoutes, { db, clock, auth, realtime: hub });
       await api.register(adminOpsRoutes, { db, clock, auth });
+      await api.register(adminDeliveryRoutes, {
+        db,
+        clock,
+        auth,
+        deliveries,
+        dispatcher,
+        realtime: hub,
+      });
+      await api.register(adminFinanceRoutes, { db, clock, auth, payments, realtime: hub });
+      await api.register(adminUserRoutes, {
+        db,
+        clock,
+        auth,
+        sessions,
+        closeUserStreams: (id) => hub.closeUser(id),
+      });
       await api.register(realtimeRoutes, { db, clock, auth, hub });
     },
     { prefix: '/api' },

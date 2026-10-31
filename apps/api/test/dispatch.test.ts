@@ -367,10 +367,15 @@ describe('job steps', () => {
   it('runs pickup to delivery in order and frees the rider', async () => {
     const { r, c, id, step } = await assigned();
     expect((await step('picked_up')).statusCode).toBe(409); // cannot skip arrival
-    for (const s of ['arrived_pickup', 'picked_up', 'arrived_dropoff', 'delivered']) {
+    for (const s of ['arrived_pickup', 'picked_up', 'arrived_dropoff']) {
       const res = await step(s);
       expect(res.statusCode, s).toBe(200);
     }
+    // The fare must be recorded before the job can be completed.
+    expect((await step('delivered')).json().error.code).toBe('PAYMENT_REQUIRED');
+    const paid = await call('POST', `/api/rider/jobs/${id}/payment`, r.cookie, { method: 'cash' });
+    expect(paid.statusCode).toBe(200);
+    expect((await step('delivered')).statusCode).toBe(200);
     const view = (await call('GET', `/api/deliveries/${id}`, c.cookie)).json();
     expect(view.status).toBe('delivered');
     expect(view.events.map((e: { toStatus: string }) => e.toStatus)).toEqual([

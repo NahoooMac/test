@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import {
   contactAttemptSchema,
+  recordPaymentSchema,
   riderApplySchema,
   riderLocationSchema,
   riderStatusSchema,
@@ -96,6 +97,17 @@ export async function riderRoutes(
   app.post<IdParams>('/rider/jobs/:id/fail', async (req, reply): Promise<RiderJob> => {
     const { user } = await auth.require(req, reply, 'rider');
     return riders.fail(user.id, req.params.id);
+  });
+
+  app.post<IdParams>('/rider/jobs/:id/payment', async (req, reply): Promise<RiderJob> => {
+    const { user } = await auth.require(req, reply, 'rider');
+    const { method, reference } = parseInput(recordPaymentSchema, req.body);
+    return riders.recordFarePayment(user.id, req.params.id, method, reference);
+  });
+
+  app.get('/rider/ledger', async (req, reply) => {
+    const { user } = await auth.require(req, reply, 'rider');
+    return riders.ledger(user.id);
   });
 
   app.get('/rider/jobs', async (req, reply) => {

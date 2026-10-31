@@ -324,6 +324,8 @@ export const deliveries = pgTable(
     returnedAt: tstz('returned_at'),
 
     idempotencyKey: text('idempotency_key').notNull(),
+    /** Incremented when an admin re-offers the job; offers are unique per rider per round. */
+    dispatchRound: integer('dispatch_round').notNull().default(0),
     version: integer('version').notNull().default(0),
     createdAt: tstz('created_at').notNull().defaultNow(),
     updatedAt: tstz('updated_at').notNull().defaultNow(),
@@ -397,6 +399,7 @@ export const deliveryOffers = pgTable(
       .references(() => riders.userId, { onDelete: 'cascade' }),
     status: offerStatus('status').notNull().default('offered'),
     toPickupKm: numeric('to_pickup_km', { precision: 6, scale: 2, mode: 'number' }).notNull(),
+    round: integer('round').notNull().default(0),
     offeredAt: tstz('offered_at').notNull().defaultNow(),
     expiresAt: tstz('expires_at').notNull(),
     respondedAt: tstz('responded_at'),
@@ -410,8 +413,8 @@ export const deliveryOffers = pgTable(
     uniqueIndex('delivery_offers_one_open_per_rider')
       .on(t.riderId)
       .where(sql`${t.status} = 'offered'`),
-    // A rider who declined or let an offer lapse is not asked again for the same delivery.
-    uniqueIndex('delivery_offers_once_per_rider').on(t.deliveryId, t.riderId),
+    // Within a dispatch round, a rider who declined or let an offer lapse is not asked again.
+    uniqueIndex('delivery_offers_once_per_rider_round').on(t.deliveryId, t.riderId, t.round),
     index('delivery_offers_open_expiry_idx').on(t.status, t.expiresAt),
   ],
 );
@@ -431,4 +434,100 @@ export const contactAttempts = pgTable(
     attemptedAt: tstz('attempted_at').notNull().defaultNow(),
   },
   (t) => [index('contact_attempts_delivery_idx').on(t.deliveryId, t.attemptedAt)],
+);
+
+// ── Phase 4d: payments, rider ledger, admin audit ───────────────────────────
+
+export const paymentKind = pgEnum('payment_kind', ['fare', 'cancellation_fee']);
+export const paymentStatus = pgEnum('payment_status', ['due', 'collected', 'waived']);
+export const ledgerType = pgEnum('ledger_type', ['commission', 'settlement', 'adjustment']);
+
+/**
+ * Money the sender or receiver paid the rider directly (cash, Telebirr, CBE Birr). One row per
+ * delivery and kind: recording the same payment twice returns the original row.
+ */
+export const payments = pgTable(
+  'payments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    deliveryId: uuid('delivery_id')
+      .notNull()
+      .references(() => deliveries.id, { onDelete: 'restrict' }),
+    kind: paymentKind('kind').notNull(),
+    status: paymentStatus('status').notNull(),
+    amount: money('amount').notNull(),
+    method: paymentMethod('method'),
+    payer: payer('payer').notNull(),
+    reference: text('reference'),
+    collectedBy: uuid('collected_by').references(() => riders.userId),
+    recordedBy: uuid('recorded_by').references(() => users.id),
+    collectedAt: tstz('collected_at'),
+    note: text('note'),
+    createdAt: tstz('created_at').notNull().defaultNow(),
+    updatedAt: tstz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('payments_one_per_delivery_kind').on(t.deliveryId, t.kind),
+    check('payments_amount_positive', sql`${t.amount} > 0`),
+    check(
+      'payments_collected_has_method',
+      sql`${t.status} <> 'collected' or (${t.method} is not null and ${t.collectedAt} is not null)`,
+    ),
+    index('payments_status_idx').on(t.status, t.createdAt),
+  ],
+);
+
+/**
+ * What each rider owes the platform. Positive = rider owes (commission on fares they collected);
+ * negative = paid to the platform (settlements). Balance = SUM(amount). Append-only.
+ */
+export const riderLedger = pgTable(
+  'rider_ledger',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    riderId: uuid('rider_id')
+      .notNull()
+      .references(() => riders.userId, { onDelete: 'restrict' }),
+    type: ledgerType('type').notNull(),
+    amount: money('amount').notNull(),
+    deliveryId: uuid('delivery_id').references(() => deliveries.id, { onDelete: 'restrict' }),
+    method: paymentMethod('method'),
+    reference: text('reference'),
+    note: text('note'),
+    idempotencyKey: text('idempotency_key'),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: tstz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // Commission is charged exactly once per delivery.
+    uniqueIndex('rider_ledger_one_commission_per_delivery')
+      .on(t.deliveryId)
+      .where(sql`${t.type} = 'commission'`),
+    uniqueIndex('rider_ledger_idempotency_key').on(t.idempotencyKey),
+    check(
+      'rider_ledger_sign',
+      sql`(${t.type} = 'commission' and ${t.amount} >= 0) or (${t.type} = 'settlement' and ${t.amount} < 0) or ${t.type} = 'adjustment'`,
+    ),
+    index('rider_ledger_rider_idx').on(t.riderId, t.createdAt),
+  ],
+);
+
+/** Every admin action, for accountability. Append-only. */
+export const adminAuditLog = pgTable(
+  'admin_audit_log',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    actorId: uuid('actor_id')
+      .notNull()
+      .references(() => users.id),
+    action: text('action').notNull(),
+    targetType: text('target_type').notNull(),
+    targetId: text('target_id').notNull(),
+    details: jsonb('details').$type<Record<string, unknown>>(),
+    createdAt: tstz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('admin_audit_log_target_idx').on(t.targetType, t.targetId, t.createdAt),
+    index('admin_audit_log_created_idx').on(t.createdAt),
+  ],
 );

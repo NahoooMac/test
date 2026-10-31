@@ -25,6 +25,7 @@ import type { Clock } from '../../shared/clock.ts';
 import { AppError, isUniqueViolation, violatedConstraint } from '../../shared/errors.ts';
 import { canTransition, STATUS_TIMESTAMP } from '../deliveries/state-machine.ts';
 import { noopRealtime, type Realtime } from '../realtime/hub.ts';
+import { PaymentService } from '../payments/service.ts';
 
 type DeliveryRow = typeof deliveries.$inferSelect;
 
@@ -37,10 +38,13 @@ export class RiderService {
   private readonly clock: Clock;
   private readonly realtime: Realtime;
 
-  constructor(db: Db, clock: Clock, realtime: Realtime = noopRealtime) {
+  private readonly payments: PaymentService;
+
+  constructor(db: Db, clock: Clock, realtime: Realtime = noopRealtime, payments?: PaymentService) {
     this.db = db;
     this.clock = clock;
     this.realtime = realtime;
+    this.payments = payments ?? new PaymentService(db, clock);
   }
 
   // ── Application ────────────────────────────────────────────────────────────
@@ -262,6 +266,7 @@ export class RiderService {
         at: a.attemptedAt.toISOString(),
         outcome: a.outcome,
       })),
+      farePayment: await this.farePaymentView(d.id),
       canFailAt:
         failAvailableAt(
           attempts.filter((a) => a.outcome !== 'answered').map((a) => a.attemptedAt),
@@ -316,7 +321,10 @@ export class RiderService {
       const [d] = await this.db.select().from(deliveries).where(eq(deliveries.id, deliveryId));
       return this.toJob(d!);
     } catch (err) {
-      if (isUniqueViolation(err) && violatedConstraint(err) !== 'delivery_offers_once_per_rider') {
+      if (
+        isUniqueViolation(err) &&
+        violatedConstraint(err) !== 'delivery_offers_once_per_rider_round'
+      ) {
         throw new AppError(409, 'RIDER_BUSY', 'Finish your current job before accepting another.');
       }
       throw err;
@@ -349,6 +357,16 @@ export class RiderService {
       throw new AppError(409, 'INVALID_STEP', `Cannot go from ${d.status} to ${to}.`);
     }
     if (to === 'requested') return this.release(userId, deliveryId);
+    if (to === 'delivered') {
+      const paid = await this.payments.farePayment(d.id);
+      if (paid?.status !== 'collected') {
+        throw new AppError(
+          409,
+          'PAYMENT_REQUIRED',
+          'Record how the fare was paid before marking it delivered.',
+        );
+      }
+    }
     await this.transition(d, to, 'rider', userId, at);
     return this.toJob((await this.ownJob(userId, deliveryId, true))!);
   }
@@ -444,6 +462,37 @@ export class RiderService {
     });
     await this.realtime.deliveryChanged(d.id);
     return this.toJob((await this.ownJob(userId, deliveryId, true))!);
+  }
+
+  /** Rider records how the fare was paid (also allowed after a return, since the fare stays due). */
+  async recordFarePayment(
+    userId: string,
+    deliveryId: string,
+    method: 'cash' | 'telebirr' | 'cbe_birr',
+    reference: string | undefined,
+  ): Promise<RiderJob> {
+    const d = await this.ownJob(userId, deliveryId, true);
+    await this.payments.recordFare(d, userId, method, reference);
+    await this.realtime.deliveryChanged(d.id);
+    return this.toJob(d);
+  }
+
+  async ledger(userId: string) {
+    const [balance, entries] = await Promise.all([
+      this.payments.balance(userId),
+      this.payments.entries(userId, 30),
+    ]);
+    return {
+      balance,
+      entries: entries.map((e) => ({ ...e, createdAt: e.createdAt.toISOString() })),
+    };
+  }
+
+  private async farePaymentView(deliveryId: string) {
+    const p = await this.payments.farePayment(deliveryId);
+    return p?.status === 'collected' && p.method && p.collectedAt
+      ? { method: p.method, reference: p.reference, at: p.collectedAt.toISOString() }
+      : null;
   }
 
   async recentJobs(userId: string) {

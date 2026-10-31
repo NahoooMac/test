@@ -231,9 +231,11 @@ describe('public tracking', () => {
     const mine = (await call('GET', `/api/deliveries/${d.id}`, c.cookie)).json();
     expect(mine.riderLocation).toMatchObject({ lat: 9.015, lng: 38.759 });
 
-    for (const to of ['arrived_pickup', 'picked_up', 'arrived_dropoff', 'delivered']) {
+    for (const to of ['arrived_pickup', 'picked_up', 'arrived_dropoff']) {
       await call('POST', `/api/rider/jobs/${d.id}/step`, r.cookie, { to });
     }
+    await call('POST', `/api/rider/jobs/${d.id}/payment`, r.cookie, { method: 'cash' });
+    await call('POST', `/api/rider/jobs/${d.id}/step`, r.cookie, { to: 'delivered' });
     const done = (await t.app.inject({ method: 'GET', url: `/api/track/${d.code}` })).json();
     expect(done.status).toBe('delivered');
     expect(done.rider.phone).toBeNull();

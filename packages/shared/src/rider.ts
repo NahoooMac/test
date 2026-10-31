@@ -120,6 +120,10 @@ export const riderJobSchema = z.object({
   contactAttempts: z.array(z.object({ at: z.string(), outcome: z.enum(CONTACT_OUTCOMES) })),
   /** When the failed-delivery rule is satisfied; null while there are too few attempts. */
   canFailAt: z.string().nullable(),
+  /** Fare payment recorded by the rider; required before "delivered". */
+  farePayment: z
+    .object({ method: z.enum(PAYMENT_METHODS), reference: z.string().nullable(), at: z.string() })
+    .nullable(),
   assignedAt: z.string().nullable(),
 });
 export type RiderJob = z.infer<typeof riderJobSchema>;

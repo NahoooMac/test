@@ -62,6 +62,7 @@ export class Dispatcher {
         vehicleType: deliveries.vehicleType,
         lat: deliveries.pickupLat,
         lng: deliveries.pickupLng,
+        round: deliveries.dispatchRound,
       })
       .from(deliveries)
       .where(eq(deliveries.id, deliveryId));
@@ -97,7 +98,8 @@ export class Dispatcher {
               .where(
                 and(
                   eq(deliveryOffers.riderId, riders.userId),
-                  sql`(${deliveryOffers.status} = 'offered' or ${deliveryOffers.deliveryId} = ${deliveryId})`,
+                  // Busy with another offer, or already asked for this delivery in this round.
+                  sql`(${deliveryOffers.status} = 'offered' or (${deliveryOffers.deliveryId} = ${deliveryId} and ${deliveryOffers.round} = ${d.round}))`,
                 ),
               ),
           ),
@@ -112,6 +114,7 @@ export class Dispatcher {
           deliveryId,
           riderId: c.riderId,
           toPickupKm: Math.round(c.km * 100) / 100,
+          round: d.round,
           offeredAt: now,
           expiresAt: addSeconds(now, this.opts.offerTtlSec),
         });

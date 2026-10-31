@@ -186,6 +186,16 @@ export function DeliveryDetail() {
             label={t('booking.payerTitle')}
             value={`${t(`booking.payers.${d.payer}`)} · ${t(`booking.methods.${d.preferredPaymentMethod}`)}`}
           />
+          {d.farePayment?.status === 'collected' && d.farePayment.method ? (
+            <Row
+              label={t('booking.fare')}
+              value={
+                <span className="text-success">
+                  {t('delivery.paid', { method: t(`booking.methods.${d.farePayment.method}`) })}
+                </span>
+              }
+            />
+          ) : null}
           <Row
             label={t('booking.fare')}
             value={<span className="font-bold tabular">{d.fare} ETB</span>}

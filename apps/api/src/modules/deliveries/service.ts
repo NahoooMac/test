@@ -19,12 +19,14 @@ import {
   deliveries,
   deliveryEvents,
   deliveryOffers,
+  payments,
   pricingRules,
   riders,
   users,
 } from '../../db/schema.ts';
 import type { Clock } from '../../shared/clock.ts';
 import { noopRealtime, type Realtime } from '../realtime/hub.ts';
+import { PaymentService } from '../payments/service.ts';
 import { AppError, isUniqueViolation } from '../../shared/errors.ts';
 import { computeFare, estimateRoadKm, etaMinutes, unavailableReason } from '../pricing/pricing.ts';
 import { currentRule, currentRules } from '../pricing/repo.ts';
@@ -48,6 +50,7 @@ export class DeliveryService {
   private readonly clock: Clock;
   private readonly afterCreate: (deliveryId: string) => Promise<unknown>;
   private readonly realtime: Realtime;
+  private readonly payments: PaymentService;
 
   /** `afterCreate` runs once a booking is committed (dispatch); its failure never fails the booking. */
   constructor(
@@ -55,9 +58,11 @@ export class DeliveryService {
     clock: Clock,
     afterCreate: (deliveryId: string) => Promise<unknown> = async () => {},
     realtime: Realtime = noopRealtime,
+    payments?: PaymentService,
   ) {
     this.afterCreate = afterCreate;
     this.realtime = realtime;
+    this.payments = payments ?? new PaymentService(db, clock);
     this.db = db;
     this.clock = clock;
   }
@@ -201,8 +206,45 @@ export class DeliveryService {
     if (fee === null || !canTransition(current.status, 'cancelled', 'customer')) {
       throw new AppError(409, 'CANNOT_CANCEL', 'This delivery can no longer be cancelled.');
     }
+    await this.cancel(id, current.status, 'customer', customerId, fee, reason ?? null);
+    return this.getForCustomer(customerId, id);
+  }
+
+  /**
+   * Admin cancellation. The fee is only charged when the admin chooses to and the rider had
+   * already reached the pickup; otherwise nothing is due.
+   */
+  async cancelByAdmin(
+    adminId: string,
+    id: string,
+    reason: string,
+    chargeFee: boolean,
+  ): Promise<void> {
+    const [row] = await this.selectWithJoins().where(eq(deliveries.id, id)).limit(1);
+    if (!row) throw notFound();
+    if (!canTransition(row.d.status, 'cancelled', 'admin')) {
+      throw new AppError(
+        409,
+        'CANNOT_CANCEL',
+        `A delivery that is ${row.d.status} cannot be cancelled.`,
+      );
+    }
+    const fee = chargeFee
+      ? (customerCancellationFee(row.d.status, row.feeAfterArrival) ?? '0.00')
+      : '0.00';
+    await this.cancel(id, row.d.status, 'admin', adminId, fee, reason);
+  }
+
+  private async cancel(
+    id: string,
+    fromStatus: DeliveryRow['status'],
+    actor: 'customer' | 'admin',
+    actorId: string,
+    fee: string,
+    reason: string | null,
+  ) {
     const [row] = await this.db
-      .select({ version: deliveries.version })
+      .select({ version: deliveries.version, payer: deliveries.payer })
       .from(deliveries)
       .where(eq(deliveries.id, id));
     const now = this.clock.now();
@@ -214,16 +256,16 @@ export class DeliveryService {
         .set({
           status: 'cancelled',
           cancelledAt: now,
-          cancelledBy: 'customer',
+          cancelledBy: actor,
           cancellationFee: fee,
-          cancelReason: reason ?? null,
+          cancelReason: reason,
           version: row!.version + 1,
           updatedAt: now,
         })
         .where(
           and(
             eq(deliveries.id, id),
-            eq(deliveries.status, current.status),
+            eq(deliveries.status, fromStatus),
             eq(deliveries.version, row!.version),
           ),
         )
@@ -236,21 +278,12 @@ export class DeliveryService {
         .update(deliveryOffers)
         .set({ status: 'withdrawn', respondedAt: now })
         .where(and(eq(deliveryOffers.deliveryId, id), eq(deliveryOffers.status, 'offered')));
-      await this.recordEvent(
-        tx,
-        id,
-        current.status,
-        'cancelled',
-        'customer',
-        customerId,
-        reason ?? null,
-        {
-          cancellationFee: fee,
-        },
-      );
+      await this.payments.recordDueCancellationFee(tx, { id, payer: row!.payer }, fee);
+      await this.recordEvent(tx, id, fromStatus, 'cancelled', actor, actorId, reason, {
+        cancellationFee: fee,
+      });
     });
     await this.realtime.deliveryChanged(id);
-    return this.getForCustomer(customerId, id);
   }
 
   // ── internals ──────────────────────────────────────────────────────────────
@@ -300,11 +333,13 @@ export class DeliveryService {
           locatedAt: riders.locationUpdatedAt,
         },
         riderUser: { phone: riderUsers.phoneE164, name: riderUsers.fullName },
+        fare: { status: payments.status, method: payments.method },
       })
       .from(deliveries)
       .innerJoin(pricingRules, eq(pricingRules.id, deliveries.pricingRuleId))
       .leftJoin(riders, eq(riders.userId, deliveries.riderId))
-      .leftJoin(riderUsers, eq(riderUsers.id, deliveries.riderId));
+      .leftJoin(riderUsers, eq(riderUsers.id, deliveries.riderId))
+      .leftJoin(payments, and(eq(payments.deliveryId, deliveries.id), eq(payments.kind, 'fare')));
   }
 
   private toSummary(
@@ -351,6 +386,7 @@ export class DeliveryService {
               plate: r.rider.plate,
             }
           : null,
+      farePayment: r.fare ? { status: r.fare.status, method: r.fare.method } : null,
       riderLocation:
         r.rider?.lat != null &&
         r.rider.lng != null &&

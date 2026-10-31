@@ -7,6 +7,10 @@ import { useTheme } from '../../lib/theme.ts';
 import { SignInFlow } from '../../features/auth/SignInFlow.tsx';
 import { RidersAdmin } from '../../features/admin/RidersAdmin.tsx';
 import { LiveOps } from '../../features/admin/LiveOps.tsx';
+import { DeliveriesAdmin } from '../../features/admin/DeliveriesAdmin.tsx';
+import { ReconciliationAdmin } from '../../features/admin/FinanceAdmin.tsx';
+import { PricingAdmin } from '../../features/admin/PricingAdmin.tsx';
+import { UsersAdmin } from '../../features/admin/UsersAdmin.tsx';
 import { LanguageToggle } from '../../features/auth/LanguageToggle.tsx';
 import { EmptyState, cn } from '../../ui/index.ts';
 import { Wordmark } from '../Wordmark.tsx';
@@ -25,7 +29,12 @@ export default function AdminApp() {
       >
         <Route index element={<LiveOps />} />
         <Route path="riders" element={<RidersAdmin />} />
-        <Route path="*" element={<EmptyState title="Coming in Phase 4d" />} />
+        <Route path="deliveries" element={<DeliveriesAdmin />} />
+        <Route path="deliveries/:id" element={<DeliveriesAdmin />} />
+        <Route path="reconciliation" element={<ReconciliationAdmin />} />
+        <Route path="pricing" element={<PricingAdmin />} />
+        <Route path="users" element={<UsersAdmin />} />
+        <Route path="*" element={<EmptyState title="Page not found" />} />
       </Route>
     </Routes>
   );

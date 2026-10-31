@@ -163,6 +163,13 @@ export const deliverySchema = z.object({
       plate: z.string().nullable(),
     })
     .nullable(),
+  /** How the fare was paid, once the rider recorded it. */
+  farePayment: z
+    .object({
+      status: z.enum(['due', 'collected', 'waived']),
+      method: z.enum(PAYMENT_METHODS).nullable(),
+    })
+    .nullable(),
   /** Last known rider position while the job is in progress; null otherwise. */
   riderLocation: z.object({ lat: z.number(), lng: z.number(), at: z.string() }).nullable(),
   createdAt: z.string(),

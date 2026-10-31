@@ -136,6 +136,16 @@ export class RealtimeHub {
     }
   }
 
+  /** Ends every stream of a user (account suspended). */
+  closeUser(userId: string): void {
+    for (const c of this.conns.values()) {
+      if (c.userId === userId) {
+        c.res.end();
+        this.conns.delete(c.id);
+      }
+    }
+  }
+
   close(): void {
     clearInterval(this.heartbeat);
     for (const c of this.conns.values()) c.res.end();
