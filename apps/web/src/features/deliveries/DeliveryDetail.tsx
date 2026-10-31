@@ -97,7 +97,7 @@ export function DeliveryDetail() {
             { id: 'p', point: d.pickup, kind: 'pickup' },
             { id: 'd', point: d.dropoff, kind: 'dropoff' },
             ...(d.riderLocation
-              ? [{ id: 'r', point: d.riderLocation, kind: 'rider' as const }]
+              ? [{ id: 'r', point: d.riderLocation, kind: 'rider' as const, vehicleType: d.vehicleType }]
               : []),
           ]}
           line={[d.pickup, d.dropoff]}

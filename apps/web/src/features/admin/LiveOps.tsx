@@ -46,6 +46,7 @@ export function LiveOps() {
         id: `r-${r.id}`,
         point: { lat: r.lat!, lng: r.lng! },
         kind: 'rider' as const,
+        vehicleType: r.vehicleType,
       })),
     ...(data?.deliveries ?? [])
       .filter((d) => d.status === 'requested')
@@ -112,7 +113,7 @@ export function LiveOps() {
         <Panel className="overflow-hidden">
           <MapView className="h-[420px]" zoom={12} markers={markers} />
           <p className="border-t border-line px-4 py-2 text-xs text-ink-3">
-            Green dots: riders · Rings: pickups waiting for a rider
+            Green: motorcycles · Blue: bicycles · Rings: pickups waiting
           </p>
         </Panel>
         <Panel className="flex flex-col">

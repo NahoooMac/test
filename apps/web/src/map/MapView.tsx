@@ -8,6 +8,7 @@ export interface MapMarker {
   id: string;
   point: LatLng;
   kind: 'pickup' | 'dropoff' | 'rider';
+  vehicleType?: 'motorcycle' | 'bicycle';
 }
 
 const toCoords = (p: LatLng): YCoords => [p.lat, p.lng];
@@ -21,6 +22,32 @@ const MARKER_HTML: Record<MapMarker['kind'], string> = {
   rider:
     '<div style="position:absolute;left:-15px;top:-15px;width:30px;height:30px;border-radius:999px;background:var(--c-accent);border:3px solid var(--c-surface);box-sizing:border-box;box-shadow:0 2px 8px rgba(0,0,0,.35)"></div>',
 };
+
+const RIDER_MOTORCYCLE_HTML =
+  '<div style="position:absolute;left:-22px;top:-44px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.4))">' +
+  '<svg width="44" height="52" viewBox="0 0 44 52">' +
+  '<ellipse cx="22" cy="49" rx="12" ry="3" fill="rgba(0,0,0,.25)"/>' +
+  '<path d="M6 28c0-10 7-22 16-26 9 4 16 16 16 26 0 6-3 10-8 12l-1-5a7 7 0 0 0-14 0l-1 5c-5-2-8-6-8-12z" fill="#0e6b4a"/>' +
+  '<path d="M14 28c0-5 3.5-9 8-9s8 4 8 9-3.5 9-8 9-8-4-8-9z" fill="#fff"/>' +
+  '<path d="M18 25l4 2v5l-2 1-2-1z" fill="#15171a" stroke="#15171a" stroke-width=".5" stroke-linejoin="round"/>' +
+  '<circle cx="22" cy="24" r="2" fill="#15171a"/>' +
+  '<path d="M16 15c2-3 5-5 6-5s4 2 6 5" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
+  '</svg></div>';
+
+const RIDER_BICYCLE_HTML =
+  '<div style="position:absolute;left:-22px;top:-44px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.4))">' +
+  '<svg width="44" height="52" viewBox="0 0 44 52">' +
+  '<ellipse cx="22" cy="49" rx="12" ry="3" fill="rgba(0,0,0,.25)"/>' +
+  '<path d="M6 28c0-10 7-22 16-26 9 4 16 16 16 26 0 6-3 10-8 12l-1-5a7 7 0 0 0-14 0l-1 5c-5-2-8-6-8-12z" fill="#2563eb"/>' +
+  '<path d="M14 28c0-5 3.5-9 8-9s8 4 8 9-3.5 9-8 9-8-4-8-9z" fill="#fff"/>' +
+  '<circle cx="18" cy="30" r="3.5" stroke="#15171a" stroke-width="1.2" fill="none"/>' +
+  '<circle cx="26" cy="30" r="3.5" stroke="#15171a" stroke-width="1.2" fill="none"/>' +
+  '<path d="M18 30l4-6h4l-4 6" stroke="#15171a" stroke-width="1.2" fill="none" stroke-linejoin="round"/>' +
+  '<path d="M22 24l2-3" stroke="#15171a" stroke-width="1.2" stroke-linecap="round"/>' +
+  '</svg></div>';
+
+const riderHtml = (vehicleType?: 'motorcycle' | 'bicycle') =>
+  vehicleType === 'bicycle' ? RIDER_BICYCLE_HTML : vehicleType === 'motorcycle' ? RIDER_MOTORCYCLE_HTML : MARKER_HTML.rider;
 
 /**
  * Yandex map with our markers and a pickup→drop-off line. Falls back to a neutral panel when the
@@ -105,22 +132,25 @@ export function MapView({
         line.map(toCoords),
         {},
         {
-          strokeColor: '#15171a',
-          strokeWidth: 4,
-          strokeStyle: 'shortdash',
-          strokeOpacity: 0.8,
+          strokeColor: '#0e6b4a',
+          strokeWidth: 5,
+          strokeOpacity: 0.9,
         },
       );
       a.map.geoObjects.add(polyline);
       overlays.current.push(polyline);
     }
     for (const m of markers) {
+      const html = m.kind === 'rider' ? riderHtml(m.vehicleType) : MARKER_HTML[m.kind];
+      const isVehicleRider = m.kind === 'rider' && m.vehicleType;
       const placemark = new a.ymaps.Placemark(
         toCoords(m.point),
         {},
         {
-          iconLayout: a.ymaps.templateLayoutFactory.createClass(MARKER_HTML[m.kind]),
-          iconShape: { type: 'Circle', coordinates: [0, 0], radius: 16 },
+          iconLayout: a.ymaps.templateLayoutFactory.createClass(html),
+          iconShape: isVehicleRider
+            ? { type: 'Circle', coordinates: [0, -16], radius: 22 }
+            : { type: 'Circle', coordinates: [0, 0], radius: 16 },
         },
       );
       a.map.geoObjects.add(placemark);

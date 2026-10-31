@@ -105,7 +105,9 @@ export function ActiveJob({
   const markers: MapMarker[] = [
     { id: 'p', point: job.pickup, kind: 'pickup' },
     { id: 'd', point: job.dropoff, kind: 'dropoff' },
-    ...(position ? [{ id: 'me', point: position, kind: 'rider' as const }] : []),
+    ...(position
+      ? [{ id: 'me', point: position, kind: 'rider' as const, vehicleType: job.vehicleType }]
+      : []),
   ];
 
   return (
