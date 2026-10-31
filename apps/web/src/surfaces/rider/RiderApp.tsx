@@ -1,12 +1,15 @@
-import { NavLink, Outlet, Route, Routes } from 'react-router';
+import type { ReactNode } from 'react';
+import { Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Bike, Wallet, UserRound } from 'lucide-react';
-import { RequireRole } from '../../lib/session.tsx';
+import { FullScreenLoader, RequireRole, useSession } from '../../lib/session.tsx';
+import { ApplyForm } from '../../features/rider/ApplyForm.tsx';
+import { RiderEarnings, RiderHomeScreen } from '../../features/rider/RiderHomeScreen.tsx';
 import { useTheme } from '../../lib/theme.ts';
 import { SignInFlow } from '../../features/auth/SignInFlow.tsx';
 import { AccountPanel } from '../../features/auth/AccountPanel.tsx';
 import { LanguageToggle } from '../../features/auth/LanguageToggle.tsx';
-import { Badge, EmptyState, cn } from '../../ui/index.ts';
+import { Badge, cn } from '../../ui/index.ts';
 import { Wordmark } from '../Wordmark.tsx';
 
 export default function RiderApp() {
@@ -16,16 +19,13 @@ export default function RiderApp() {
       <Route path="sign-in" element={<RiderSignIn />} />
       <Route
         element={
-          <RequireRole role="rider" signInPath="/rider/sign-in">
+          <RiderGate>
             <RiderShell />
-          </RequireRole>
+          </RiderGate>
         }
       >
-        <Route
-          index
-          element={<EmptyState title="You're offline" body="Jobs are built in Phase 4." />}
-        />
-        <Route path="earnings" element={<EmptyState title="No earnings yet" />} />
+        <Route index element={<RiderHomeScreen />} />
+        <Route path="earnings" element={<RiderEarnings />} />
         <Route path="account" element={<AccountPanel signInPath="/rider/sign-in" />} />
       </Route>
     </Routes>
@@ -75,7 +75,8 @@ function RiderShell() {
   ];
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col">
-      <main className="flex-1">
+      {/* Flex column so a screen can push its main action down to just above the tab bar. */}
+      <main className="flex flex-1 flex-col">
         <Outlet />
       </main>
       <nav
@@ -100,5 +101,24 @@ function RiderShell() {
         ))}
       </nav>
     </div>
+  );
+}
+
+/**
+ * A new account (role "customer" with no bookings) may apply to ride, so it gets the application
+ * form instead of a "wrong area" message. Everything else follows the normal role guard.
+ */
+function RiderGate({ children }: { children: ReactNode }) {
+  const session = useSession();
+  const location = useLocation();
+  if (session.isPending) return <FullScreenLoader />;
+  if (session.data === null) {
+    return <Navigate to="/rider/sign-in" replace state={{ from: location.pathname }} />;
+  }
+  if (session.data?.role === 'customer') return <ApplyForm />;
+  return (
+    <RequireRole role="rider" signInPath="/rider/sign-in">
+      {children}
+    </RequireRole>
   );
 }

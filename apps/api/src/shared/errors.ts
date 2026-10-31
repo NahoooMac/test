@@ -97,3 +97,9 @@ export function isUniqueViolation(err: unknown): boolean {
   const e = err as { code?: string; cause?: { code?: string } } | null;
   return e?.code === '23505' || e?.cause?.code === '23505';
 }
+
+/** Name of the violated constraint/index, when the driver reports it. */
+export function violatedConstraint(err: unknown): string | undefined {
+  const e = err as { constraint?: string; cause?: { constraint?: string } } | null;
+  return e?.constraint ?? e?.cause?.constraint;
+}

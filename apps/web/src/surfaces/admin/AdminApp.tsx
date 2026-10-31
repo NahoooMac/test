@@ -5,6 +5,7 @@ import { SUB_CITIES, formatPhone } from '@dp/shared';
 import { RequireRole, useSession, useSignOut } from '../../lib/session.tsx';
 import { useTheme } from '../../lib/theme.ts';
 import { SignInFlow } from '../../features/auth/SignInFlow.tsx';
+import { RidersAdmin } from '../../features/admin/RidersAdmin.tsx';
 import { LanguageToggle } from '../../features/auth/LanguageToggle.tsx';
 import { EmptyState, cn } from '../../ui/index.ts';
 import { Wordmark } from '../Wordmark.tsx';
@@ -27,6 +28,7 @@ export default function AdminApp() {
             <EmptyState title="No riders online" body="Riders appear here when they go online." />
           }
         />
+        <Route path="riders" element={<RidersAdmin />} />
         <Route path="*" element={<EmptyState title="Coming in Phase 4" />} />
       </Route>
     </Routes>

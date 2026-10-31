@@ -20,6 +20,7 @@ import {
 import {
   ACTIVE_RIDER_STATUSES,
   ACTOR_ROLES,
+  CONTACT_OUTCOMES,
   DELIVERY_STATUSES,
   LANGUAGES,
   PARCEL_SIZES,
@@ -214,6 +215,9 @@ export const riders = pgTable(
     vehicleType: vehicleType('vehicle_type').notNull(),
     plateNumber: text('plate_number'),
     approvalStatus: riderApproval('approval_status').notNull().default('pending'),
+    reviewedBy: uuid('reviewed_by').references(() => users.id),
+    reviewedAt: tstz('reviewed_at'),
+    rejectionReason: text('rejection_reason'),
     isOnline: boolean('is_online').notNull().default(false),
     currentLat: coord('current_lat'),
     currentLng: coord('current_lng'),
@@ -367,4 +371,64 @@ export const deliveryEvents = pgTable(
     createdAt: tstz('created_at').notNull().defaultNow(),
   },
   (t) => [index('delivery_events_delivery_idx').on(t.deliveryId, t.createdAt)],
+);
+
+// ── Phase 4b: dispatch offers and failed-delivery contact log ───────────────
+
+export const offerStatus = pgEnum('offer_status', [
+  'offered',
+  'accepted',
+  'declined',
+  'expired',
+  'withdrawn',
+]);
+export const contactOutcome = pgEnum('contact_outcome', CONTACT_OUTCOMES);
+
+/** One row per job offered to a rider. Riders see at most one open offer at a time. */
+export const deliveryOffers = pgTable(
+  'delivery_offers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    deliveryId: uuid('delivery_id')
+      .notNull()
+      .references(() => deliveries.id, { onDelete: 'cascade' }),
+    riderId: uuid('rider_id')
+      .notNull()
+      .references(() => riders.userId, { onDelete: 'cascade' }),
+    status: offerStatus('status').notNull().default('offered'),
+    toPickupKm: numeric('to_pickup_km', { precision: 6, scale: 2, mode: 'number' }).notNull(),
+    offeredAt: tstz('offered_at').notNull().defaultNow(),
+    expiresAt: tstz('expires_at').notNull(),
+    respondedAt: tstz('responded_at'),
+  },
+  (t) => [
+    // A delivery is offered to one rider at a time …
+    uniqueIndex('delivery_offers_one_open_per_delivery')
+      .on(t.deliveryId)
+      .where(sql`${t.status} = 'offered'`),
+    // … and a rider holds at most one open offer, even when several deliveries dispatch at once.
+    uniqueIndex('delivery_offers_one_open_per_rider')
+      .on(t.riderId)
+      .where(sql`${t.status} = 'offered'`),
+    // A rider who declined or let an offer lapse is not asked again for the same delivery.
+    uniqueIndex('delivery_offers_once_per_rider').on(t.deliveryId, t.riderId),
+    index('delivery_offers_open_expiry_idx').on(t.status, t.expiresAt),
+  ],
+);
+
+/** Calls the rider made to an unreachable receiver; backs the failed-delivery rule. */
+export const contactAttempts = pgTable(
+  'contact_attempts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    deliveryId: uuid('delivery_id')
+      .notNull()
+      .references(() => deliveries.id, { onDelete: 'cascade' }),
+    riderId: uuid('rider_id')
+      .notNull()
+      .references(() => riders.userId),
+    outcome: contactOutcome('outcome').notNull(),
+    attemptedAt: tstz('attempted_at').notNull().defaultNow(),
+  },
+  (t) => [index('contact_attempts_delivery_idx').on(t.deliveryId, t.attemptedAt)],
 );

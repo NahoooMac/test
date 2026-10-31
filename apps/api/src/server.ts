@@ -19,10 +19,18 @@ if (database.driver === 'pglite' && config.NODE_ENV !== 'production') {
   await runMigrations(database);
 }
 
-const app = await buildApp({ config, database });
+const { app, dispatcher } = await buildApp({ config, database });
+
+// Dispatch loop: lapse expired offers and re-offer waiting deliveries. Safe to run on several
+// instances at once because the database enforces one open offer per delivery and per rider.
+const DISPATCH_INTERVAL_MS = 3000;
+const dispatchTimer = setInterval(() => {
+  dispatcher.tick().catch((err) => app.log.error({ err }, 'dispatch tick failed'));
+}, DISPATCH_INTERVAL_MS);
 
 const shutdown = async (signal: string) => {
   app.log.info({ signal }, 'shutting down');
+  clearInterval(dispatchTimer);
   await app.close();
   await database.close();
   process.exit(0);

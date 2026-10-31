@@ -23,7 +23,13 @@ export async function createTestApp(
   const config = loadConfig({ NODE_ENV: 'test', APP_ORIGIN: ORIGIN, ...opts.env });
   const clock = opts.clock ?? new ManualClock();
   const sms = new FakeSmsProvider();
-  const app = await buildApp({ config, database, clock, sms, geo: new FakeGeoProvider() });
+  const { app, dispatcher } = await buildApp({
+    config,
+    database,
+    clock,
+    sms,
+    geo: new FakeGeoProvider(),
+  });
 
   // `ip` sets the client address (proxy headers are not trusted outside production).
   const post = (
@@ -42,6 +48,7 @@ export async function createTestApp(
 
   return {
     app,
+    dispatcher,
     database,
     clock,
     sms,

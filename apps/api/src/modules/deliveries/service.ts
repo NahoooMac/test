@@ -14,7 +14,14 @@ import {
 import type { z } from 'zod';
 import { alias } from 'drizzle-orm/pg-core';
 import type { Db, Tx } from '../../db/client.ts';
-import { deliveries, deliveryEvents, pricingRules, riders, users } from '../../db/schema.ts';
+import {
+  deliveries,
+  deliveryEvents,
+  deliveryOffers,
+  pricingRules,
+  riders,
+  users,
+} from '../../db/schema.ts';
 import type { Clock } from '../../shared/clock.ts';
 import { AppError, isUniqueViolation } from '../../shared/errors.ts';
 import { computeFare, estimateRoadKm, etaMinutes, unavailableReason } from '../pricing/pricing.ts';
@@ -37,8 +44,15 @@ const notFound = () => new AppError(404, 'NOT_FOUND', 'Delivery not found.');
 export class DeliveryService {
   private readonly db: Db;
   private readonly clock: Clock;
+  private readonly afterCreate: (deliveryId: string) => Promise<unknown>;
 
-  constructor(db: Db, clock: Clock) {
+  /** `afterCreate` runs once a booking is committed (dispatch); its failure never fails the booking. */
+  constructor(
+    db: Db,
+    clock: Clock,
+    afterCreate: (deliveryId: string) => Promise<unknown> = async () => {},
+  ) {
+    this.afterCreate = afterCreate;
     this.db = db;
     this.clock = clock;
   }
@@ -131,6 +145,11 @@ export class DeliveryService {
           await this.recordEvent(tx, row!.id, null, 'requested', 'customer', customerId, null);
           return row!.id;
         });
+        try {
+          await this.afterCreate(id);
+        } catch {
+          // Dispatch is retried by the dispatcher's periodic tick.
+        }
         return { delivery: await this.getForCustomer(customerId, id), created: true };
       } catch (err) {
         if (!isUniqueViolation(err)) throw err;
@@ -206,6 +225,11 @@ export class DeliveryService {
       if (updated.length === 0) {
         throw new AppError(409, 'STALE', 'This delivery just changed. Refresh and try again.');
       }
+      // A rider still looking at the offer must not be able to accept a cancelled job.
+      await tx
+        .update(deliveryOffers)
+        .set({ status: 'withdrawn', respondedAt: now })
+        .where(and(eq(deliveryOffers.deliveryId, id), eq(deliveryOffers.status, 'offered')));
       await this.recordEvent(
         tx,
         id,

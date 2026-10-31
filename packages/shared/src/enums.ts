@@ -79,3 +79,11 @@ export const SUB_CITIES: readonly SubCity[] = [
   { slug: 'akaki-kality', nameEn: 'Akaki Kality', nameAm: 'አቃቂ ቃሊቲ' },
   { slug: 'lemi-kura', nameEn: 'Lemi Kura', nameAm: 'ለሚ ኩራ' },
 ];
+
+/** Display name for a sub-city slug in the UI language; unknown values are shown as-is. */
+export function subCityName(slug: string | null | undefined, language: string): string | undefined {
+  if (!slug) return undefined;
+  const s = SUB_CITIES.find((x) => x.slug === slug);
+  if (!s) return slug;
+  return language === 'am' ? s.nameAm : s.nameEn;
+}

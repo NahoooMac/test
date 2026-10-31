@@ -4,3 +4,4 @@ export * from './money.ts';
 export * from './api.ts';
 export * from './geo.ts';
 export * from './delivery.ts';
+export * from './rider.ts';

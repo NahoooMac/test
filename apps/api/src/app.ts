@@ -15,6 +15,10 @@ import { SessionService } from './modules/auth/sessions.ts';
 import { DeliveryService } from './modules/deliveries/service.ts';
 import { deliveryRoutes } from './modules/deliveries/routes.ts';
 import { geoRoutes } from './modules/geo/routes.ts';
+import { Dispatcher, type DispatchOptions } from './modules/dispatch/dispatcher.ts';
+import { RiderService } from './modules/riders/service.ts';
+import { riderRoutes } from './modules/riders/routes.ts';
+import { adminRiderRoutes } from './modules/admin/riders.ts';
 
 export interface AppDeps {
   config: Config;
@@ -23,9 +27,17 @@ export interface AppDeps {
   clock?: Clock;
   sms?: SmsProvider;
   geo?: GeoProvider;
+  dispatch?: Partial<DispatchOptions>;
 }
 
-export async function buildApp({ config, database, clock = systemClock, sms, geo }: AppDeps) {
+export async function buildApp({
+  config,
+  database,
+  clock = systemClock,
+  sms,
+  geo,
+  dispatch,
+}: AppDeps) {
   const logger: FastifyServerOptions['logger'] =
     config.NODE_ENV === 'development'
       ? {
@@ -60,7 +72,9 @@ export async function buildApp({ config, database, clock = systemClock, sms, geo
     log: app.log,
   });
   const auth = createAuthenticator(sessions, config);
-  const deliveries = new DeliveryService(db, clock);
+  const dispatcher = new Dispatcher(db, clock, app.log, dispatch);
+  const deliveries = new DeliveryService(db, clock, (id) => dispatcher.dispatch(id));
+  const riders = new RiderService(db, clock);
   const geoProvider = geo ?? createGeoProvider(config);
 
   await app.register(
@@ -70,9 +84,11 @@ export async function buildApp({ config, database, clock = systemClock, sms, geo
       await api.register(authRoutes, { db, config, clock, otp, sessions, auth });
       await api.register(deliveryRoutes, { db, clock, auth, deliveries });
       await api.register(geoRoutes, { db, clock, auth, geo: geoProvider });
+      await api.register(riderRoutes, { db, clock, auth, riders, dispatcher });
+      await api.register(adminRiderRoutes, { db, clock, auth });
     },
     { prefix: '/api' },
   );
 
-  return app;
+  return { app, dispatcher };
 }
