@@ -1,4 +1,4 @@
-// Adapter behaviour against a mocked HTTP layer. Does NOT prove the live AfroMessage contract.
+// Adapter behaviour against a mocked HTTP layer, shaped like the official API reference.
 import { describe, expect, it } from 'vitest';
 import { AfroMessageSmsProvider } from '../src/integrations/sms/afromessage.ts';
 import { SmsSendError } from '../src/integrations/sms/types.ts';
@@ -70,6 +70,51 @@ describe('AfroMessageSmsProvider', () => {
     expect(err).toBeInstanceOf(SmsSendError);
     expect(err.outcome).toBe('unknown');
     expect(err.code).toBe('TIMEOUT');
+  });
+
+  it("reports AfroMessage's error code, e.g. a low balance, without the body text", async () => {
+    // Exact response seen from the live API on 2026-10-31.
+    const lowBalance = async () =>
+      new Response(
+        'Unauthorized (401-9) : Account balance is too low. Please refill or contact support.',
+        {
+          status: 401,
+        },
+      );
+    await expect(
+      provider(lowBalance).send({ to: '+251911234567', text: 'x' }),
+    ).rejects.toMatchObject({
+      outcome: 'not_sent',
+      code: 'AFRO_401-9',
+      message: 'AfroMessage account balance is too low',
+    });
+    // An unknown provider code is passed through with a generic message.
+    const err = await provider(
+      async () => new Response('Bad (400-3) : 123456 is your code', { status: 400 }),
+    )
+      .send({ to: '+251911234567', text: '123456 is your code' })
+      .catch((e) => e);
+    expect(err.code).toBe('AFRO_400-3');
+    expect(err.message).not.toContain('123456');
+  });
+
+  it('reads the balance and message status', async () => {
+    const urls: string[] = [];
+    const p = provider(async (url) => {
+      urls.push(String(url));
+      return String(url).endsWith('/api/balance')
+        ? json(200, {
+            acknowledge: 'success',
+            response: { balance: '205.65', estimatedMessages: '3577' },
+          })
+        : json(200, {
+            acknowledge: 'success',
+            response: { status: 'DELIVRD', description: 'Delivered' },
+          });
+    });
+    expect(await p.balance()).toEqual({ balance: '205.65', estimatedMessages: '3577' });
+    expect(await p.status('abc 1')).toEqual({ status: 'DELIVRD', description: 'Delivered' });
+    expect(urls[1]).toBe('https://api.afromessage.test/api/status?id=abc%201');
   });
 
   it('never puts the message text in error messages', async () => {

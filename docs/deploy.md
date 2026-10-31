@@ -54,7 +54,7 @@ with a missing or unsafe value, and the error names the variable, never its valu
 | `DATABASE_URL_DIRECT`                                                        | Neon **direct** connection string, used only by `npm run db:migrate`.                                                                                                                                             |
 | `OTP_HMAC_SECRET`                                                            | 32+ random characters: `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`. Changing it invalidates codes already sent, but not sessions.                                            |
 | `SMS_PROVIDER`                                                               | `afromessage` (`console` is refused in production).                                                                                                                                                               |
-| `AFROMESSAGE_TOKEN`, `AFROMESSAGE_IDENTIFIER_ID`, `AFROMESSAGE_SENDER`       | From the AfroMessage dashboard. **Not yet verified with a real send.** Do that before launch.                                                                                                                     |
+| `AFROMESSAGE_TOKEN`, `AFROMESSAGE_IDENTIFIER_ID`, `AFROMESSAGE_SENDER`       | From the AfroMessage dashboard. The sender name must be approved there and shows as the SMS sender. The token is verified; a real send is pending a top-up. `npm run sms:check -w @dp/api` checks it.             |
 | `SMS_DAILY_BUDGET`                                                           | Maximum sign-in SMS per UTC day across everyone (default 500). This is the cost cap.                                                                                                                              |
 | `YANDEX_GEOCODER_KEY`, `YANDEX_GEOSUGGEST_KEY`                               | Server-side keys for place search and address lookup.                                                                                                                                                             |
 | `LOG_LEVEL`                                                                  | `info`. Logs are JSON on stdout. Request logs contain method, path and IP, never cookies, headers or bodies.                                                                                                      |
@@ -117,7 +117,7 @@ database round trips, so app-to-database latency matters more than browser-to-ap
 After the first deploy, with the server's environment loaded:
 
 ```bash
-npm run admin:grant -- 0911234567
+ALLOW_REMOTE_ADMIN_GRANT=true npm run admin:grant -- 0911234567
 ```
 
 The person then signs in at `/admin` with an SMS code. See [runbook.md](runbook.md).
@@ -145,7 +145,9 @@ The app is safe to run as several instances, **except for live updates**:
 
 ## Pre-launch checklist
 
-- [ ] Real AfroMessage send verified to a test phone. Delivery report checked.
+- [ ] AfroMessage topped up and the sender name approved (it is currently "SwiftAddis"; the brand
+      isn't final).
+- [ ] Real send verified: `npm run sms:check -w @dp/api -- --send <test number>` shows delivered.
 - [ ] `SMS_DAILY_BUDGET` set to match the AfroMessage balance.
 - [ ] Separate Neon branch for development; production branch backed up.
 - [ ] Secrets rotated (see above).

@@ -5,10 +5,11 @@ Every admin action below is written to the audit log, with the admin, time and r
 
 ## Accounts
 
-**Make someone an admin.** Run on the server, with its environment loaded:
+**Make someone an admin.** Run on the server, with its environment loaded. Against a remote
+database the command refuses to run unless you confirm it for that one run:
 
 ```bash
-npm run admin:grant -- 0911234567
+ALLOW_REMOTE_ADMIN_GRANT=true npm run admin:grant -- 0911234567
 ```
 
 The number can be typed with 0, 251 or +251. The person signs in at `/admin` with an SMS code.
@@ -83,7 +84,14 @@ the AfroMessage balance, raise the variable and restart the app. The log line is
 plus 10 per hour per network address. Five wrong codes lock the number for 15 minutes. These reset
 on their own. Check that the number is a valid Ethiopian mobile number (09… or 07…).
 
-**Codes never arrive for anyone.** Look in the server log for AfroMessage errors. Each send is
+**Check AfroMessage** (sends nothing): `npm run sms:check -w @dp/api` prints the balance and
+roughly how many SMS it covers, or the exact problem. To also send one test SMS and follow its
+delivery status: `npm run sms:check -w @dp/api -- --send 0911234567`. Use only a number whose owner
+agreed to it.
+
+**Codes never arrive for anyone.** Look in the server log for `OTP SMS failed`. Its `code` field
+is AfroMessage's error code, e.g. `AFRO_401-9` = account balance too low, so top up in the
+AfroMessage dashboard. Each send is
 recorded in the `sms_messages` table with its status and the provider's message ID, never the code
 itself. Check the AfroMessage dashboard for balance and sender approval.
 

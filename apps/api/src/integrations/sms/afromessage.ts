@@ -1,7 +1,9 @@
-// AfroMessage adapter.
-// NOT YET VERIFIED against the live API. Built from third-party client libraries
-// (POST {base}/api/send, Bearer token, JSON body with to/message and optional from/sender/callback).
-// Confirm field names and the response shape with a real account before enabling in production.
+// AfroMessage adapter, per the official API reference (https://www.afromessage.com/developers):
+// POST {base}/api/send with a Bearer token and a JSON body {from?, sender?, to, message};
+// success is {"acknowledge":"success","response":{"message_id":…}}.
+// Verified live (2026-10-31): the token authenticates (/api/balance). A real send is still pending.
+// We generate and hash our own codes rather than using AfroMessage's /challenge, so rate limits,
+// lockouts and expiry stay under our control and the code never leaves our system except in the SMS.
 import { SmsSendError, type SmsMessage, type SmsProvider, type SmsSendResult } from './types.ts';
 
 export interface AfroMessageOptions {
@@ -11,6 +13,27 @@ export interface AfroMessageOptions {
   sender?: string | undefined;
   timeoutMs: number;
   fetch?: typeof fetch;
+}
+
+// AfroMessage errors look like "Unauthorized (401-9) : Account balance is too low…". The code in
+// brackets is safe to log; the free text is not (a rejection could echo the message, i.e. the OTP).
+const KNOWN_ERRORS: Record<string, string> = {
+  '401-9': 'AfroMessage account balance is too low',
+};
+
+function providerError(status: number, raw: string): { code: string; message: string } {
+  const providerCode = /\((\d{3}-\d+)\)/.exec(raw)?.[1];
+  if (!providerCode)
+    return { code: `HTTP_${status}`, message: 'SMS provider rejected the message' };
+  return {
+    code: `AFRO_${providerCode}`,
+    message: KNOWN_ERRORS[providerCode] ?? 'SMS provider rejected the message',
+  };
+}
+
+export interface AfroMessageBalance {
+  balance: string;
+  estimatedMessages: string;
 }
 
 interface AfroMessageResponse {
@@ -61,14 +84,17 @@ export class AfroMessageSmsProvider implements SmsProvider {
       );
     }
 
-    const data = (await res.json().catch(() => null)) as AfroMessageResponse | null;
+    const raw = await res.text().catch(() => '');
+    const data = parseJson(raw);
 
     if (res.status >= 500) {
       throw new SmsSendError('unknown', `HTTP_${res.status}`, 'SMS provider error');
     }
     if (!res.ok || data?.acknowledge !== 'success') {
-      // 4xx or explicit rejection: the message was not accepted. Never include the body text (it has the code).
-      throw new SmsSendError('not_sent', `HTTP_${res.status}`, 'SMS provider rejected the message');
+      // 4xx or explicit rejection: the message was not accepted. Never include the body text (it may
+      // echo the message, which contains the code) — only AfroMessage's bracketed error code.
+      const e = providerError(res.status, raw);
+      throw new SmsSendError('not_sent', e.code, e.message);
     }
 
     const response = (data.response ?? {}) as { message_id?: string | number };
@@ -76,5 +102,52 @@ export class AfroMessageSmsProvider implements SmsProvider {
       providerMessageId: response.message_id != null ? String(response.message_id) : null,
       status: 'sent',
     };
+  }
+
+  /** Account balance (GET /api/balance). Sends nothing; used by `npm run sms:check`. */
+  async balance(): Promise<AfroMessageBalance> {
+    const res = await this.fetchImpl(`${this.opts.baseUrl.replace(/\/$/, '')}/api/balance`, {
+      headers: { Authorization: `Bearer ${this.opts.token}`, Accept: 'application/json' },
+      signal: AbortSignal.timeout(this.opts.timeoutMs),
+    });
+    const raw = await res.text().catch(() => '');
+    const data = parseJson(raw);
+    if (!res.ok || data?.acknowledge !== 'success') {
+      const e = providerError(res.status, raw);
+      throw new SmsSendError('not_sent', e.code, e.message);
+    }
+    const r = (data.response ?? {}) as Partial<AfroMessageBalance>;
+    return {
+      balance: String(r.balance ?? '?'),
+      estimatedMessages: String(r.estimatedMessages ?? '?'),
+    };
+  }
+
+  /** Delivery status of a sent message (GET /api/status; rate limited to 30 calls a minute). */
+  async status(messageId: string): Promise<{ status: string; description?: string }> {
+    const url = `${this.opts.baseUrl.replace(/\/$/, '')}/api/status?id=${encodeURIComponent(messageId)}`;
+    const res = await this.fetchImpl(url, {
+      headers: { Authorization: `Bearer ${this.opts.token}`, Accept: 'application/json' },
+      signal: AbortSignal.timeout(this.opts.timeoutMs),
+    });
+    const raw = await res.text().catch(() => '');
+    const data = parseJson(raw);
+    if (!res.ok || data?.acknowledge !== 'success') {
+      const e = providerError(res.status, raw);
+      throw new SmsSendError('unknown', e.code, e.message);
+    }
+    const r = (data.response ?? {}) as { status?: string; description?: string };
+    return {
+      status: r.status ?? 'UNKNOWN',
+      ...(r.description ? { description: r.description } : {}),
+    };
+  }
+}
+
+function parseJson(raw: string): AfroMessageResponse | null {
+  try {
+    return JSON.parse(raw) as AfroMessageResponse;
+  } catch {
+    return null;
   }
 }
