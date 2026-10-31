@@ -157,7 +157,8 @@ export function UsersAdmin() {
           },
           {
             key: 'action',
-            header: '',
+            header: 'Actions',
+            hideHeader: true,
             align: 'right',
             cell: (u) =>
               u.id === me?.id ? (

@@ -16,7 +16,8 @@ docs/           Plans and decisions
 
 ## Requirements
 
-- Node.js 22.12+ (developed on 24)
+- Node.js 22.18+ (developed on 24). Production runs the TypeScript sources directly with Node's
+  built-in type stripping, so there is no API build step.
 - No database install needed for local work: the API uses **PGlite** (real Postgres compiled to
   WebAssembly, stored in `apps/api/.data/pglite`) when `DATABASE_URL` is empty.
 
@@ -72,6 +73,17 @@ To make an admin account, stop the dev server first (the local database is singl
 ```bash
 npm run admin:grant -- 0911234567
 ```
+
+## Production build
+
+```bash
+npm run preview:prod   # build the web app, then serve it from the API on the local database
+```
+
+Open http://localhost:3000. That is the production setup: one process, one origin, the web app's
+security headers and caching. A real deployment runs `npm run build` then `npm start`. See
+[docs/deploy.md](docs/deploy.md) for the environment, HTTPS, migrations and scaling, and
+[docs/runbook.md](docs/runbook.md) for day-to-day operations.
 
 ## Secrets
 

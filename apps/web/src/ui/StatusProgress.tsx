@@ -4,12 +4,22 @@ import { cn } from './cn.ts';
  * Segmented delivery progress. `current` is the index of the stage in progress;
  * stages before it are complete. Pass `current = stages.length` when finished.
  */
-export function StatusProgress({ stages, current }: { stages: string[]; current: number }) {
+export function StatusProgress({
+  stages,
+  current,
+  label = 'Progress',
+}: {
+  stages: string[];
+  current: number;
+  /** Accessible name, e.g. "Delivery progress" (translated by the caller). */
+  label?: string;
+}) {
   return (
     <div>
       <div
         className="flex gap-1"
         role="progressbar"
+        aria-label={label}
         aria-valuemin={0}
         aria-valuemax={stages.length}
         aria-valuenow={Math.min(current + 1, stages.length)}

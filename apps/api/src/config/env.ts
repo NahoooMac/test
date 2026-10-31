@@ -15,9 +15,21 @@ const envSchema = z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
     APP_ORIGIN: z.url().default('http://localhost:5173'),
+    // Which X-Forwarded-For hops to believe for the client IP (per-IP OTP limits depend on it):
+    // a hop count ("1" = one reverse proxy in front), "false", or comma-separated proxy IPs/CIDRs.
+    // Unset: 1 in production, none elsewhere. Never "true" — anyone could then fake their IP.
+    TRUST_PROXY: z.preprocess(
+      emptyToUndefined,
+      z
+        .string()
+        .refine((v) => v !== 'true', 'use a hop count or proxy addresses, not "true"')
+        .optional(),
+    ),
     DATABASE_URL: z.preprocess(emptyToUndefined, z.string().optional()),
     DATABASE_URL_DIRECT: z.preprocess(emptyToUndefined, z.string().optional()),
     PGLITE_DIR: z.string().default('.data/pglite'),
+    /** Built web app to serve from the API (single origin in production). Empty = API only. */
+    WEB_DIST_DIR: z.preprocess(emptyToUndefined, z.string().optional()),
     ALLOW_REMOTE_MIGRATIONS: z
       .enum(['true', 'false'])
       .default('false')
@@ -93,6 +105,13 @@ const envSchema = z
   });
 
 export type Config = z.infer<typeof envSchema>;
+
+/** Fastify `trustProxy` value for the configured environment. */
+export function trustProxySetting(config: Config): number | string | false {
+  const raw = config.TRUST_PROXY ?? (config.NODE_ENV === 'production' ? '1' : 'false');
+  if (raw === 'false') return false;
+  return /^\d+$/.test(raw) ? Number(raw) : raw;
+}
 
 export function loadConfig(source: Record<string, string | undefined> = process.env): Config {
   const parsed = envSchema.safeParse(source);

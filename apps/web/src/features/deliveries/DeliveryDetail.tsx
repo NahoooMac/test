@@ -124,6 +124,7 @@ export function DeliveryDetail() {
 
         {stage >= 0 && (
           <StatusProgress
+            label={t('delivery.progress')}
             stages={STAGE_KEYS.map((k) => t(`delivery.stages.${k}`))}
             current={stage}
           />

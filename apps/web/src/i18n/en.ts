@@ -171,6 +171,7 @@ export const en = {
     eta: 'Estimated trip',
     paid: 'Paid to the rider · {{method}}',
     payOnSite: 'Pay the rider · {{method}}',
+    progress: 'Delivery progress',
     notFound: "We couldn't find that delivery.",
   },
   rider: {

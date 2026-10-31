@@ -73,8 +73,9 @@ function WrongArea({ signInPath }: { signInPath: string }) {
   const { t } = useTranslation();
   const signOut = useSignOut(signInPath);
   return (
-    <div className="flex min-h-dvh items-center justify-center">
+    <main className="flex min-h-dvh items-center justify-center">
       <ErrorState
+        headingLevel="h1"
         title={t('errors.wrongAreaTitle')}
         body={t('errors.wrongAreaBody')}
         action={
@@ -83,7 +84,7 @@ function WrongArea({ signInPath }: { signInPath: string }) {
           </Button>
         }
       />
-    </div>
+    </main>
   );
 }
 

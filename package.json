@@ -7,12 +7,14 @@
     "apps/*"
   ],
   "engines": {
-    "node": ">=22.12"
+    "node": ">=22.18"
   },
   "scripts": {
     "dev": "concurrently -n api,web -c blue,magenta \"npm run dev -w @dp/api\" \"npm run dev -w @dp/web\"",
     "dev:local": "concurrently -n api,web -c blue,magenta \"npm run dev:local -w @dp/api\" \"npm run dev -w @dp/web\"",
     "build": "npm run build -w @dp/web",
+    "preview:prod": "npm run build && npm run preview -w @dp/api",
+    "start": "npm run start -w @dp/api",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "lint": "eslint .",

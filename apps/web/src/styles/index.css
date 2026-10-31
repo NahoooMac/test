@@ -21,7 +21,8 @@
   --c-line-strong: #c3beb2;
   --c-ink: #15171a;
   --c-ink-2: #474b52;
-  --c-ink-3: #686c73;
+  /* ≥ 4.5:1 on every light surface incl. surface-2 (axe, WCAG AA). */
+  --c-ink-3: #5f636a;
   --c-inverse: #15171a;
   --c-inverse-ink: #f5f3ee;
 
@@ -31,7 +32,7 @@
   --c-accent-soft: #dcefe5;
   --c-accent-soft-ink: #0a4f37;
 
-  --c-success: #1d7a46;
+  --c-success: #1a7040; /* ≥ 4.5:1 on success-soft for small badge text */
   --c-success-soft: #ddf0e3;
   --c-warning: #8f5400;
   --c-warning-soft: #fbebcf;

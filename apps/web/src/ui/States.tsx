@@ -20,7 +20,7 @@ export function EmptyState({
       <span className="mb-4 flex size-12 items-center justify-center rounded-full bg-surface-2 text-ink-2">
         {icon ?? <Inbox className="size-6" aria-hidden />}
       </span>
-      <h3 className="text-base font-semibold text-ink">{title}</h3>
+      <h2 className="text-base font-semibold text-ink">{title}</h2>
       {body && <p className="mt-1 max-w-sm text-sm text-ink-2">{body}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>
@@ -33,12 +33,15 @@ export function ErrorState({
   action,
   offline,
   className,
+  headingLevel: Heading = 'h2',
 }: {
   title: string;
   body?: string;
   action?: ReactNode;
   offline?: boolean;
   className?: string;
+  /** 'h1' when the error is the whole page. */
+  headingLevel?: 'h1' | 'h2';
 }) {
   return (
     <div
@@ -52,7 +55,7 @@ export function ErrorState({
           <AlertTriangle className="size-6" aria-hidden />
         )}
       </span>
-      <h3 className="text-base font-semibold text-ink">{title}</h3>
+      <Heading className="text-base font-semibold text-ink">{title}</Heading>
       {body && <p className="mt-1 max-w-sm text-sm text-ink-2">{body}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>

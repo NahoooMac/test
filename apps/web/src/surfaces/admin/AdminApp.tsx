@@ -99,9 +99,13 @@ function AdminShell() {
     { to: '/admin/users', label: t('nav.users'), icon: Users, end: false },
   ];
   return (
-    <div className="grid min-h-dvh grid-cols-[240px_minmax(0,1fr)]">
-      <nav className="flex flex-col gap-1 border-r border-line bg-surface p-3" aria-label="Admin">
-        <Wordmark suffix="Ops" className="mb-4 px-2 pt-2" />
+    // Sidebar on large screens; a scrollable top bar on tablets and phones.
+    <div className="min-h-dvh lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
+      <nav
+        className="sticky top-0 z-20 flex items-center gap-1 overflow-x-auto border-b border-line bg-surface px-3 py-2 lg:h-dvh lg:flex-col lg:items-stretch lg:overflow-visible lg:border-r lg:border-b-0 lg:p-3"
+        aria-label="Admin"
+      >
+        <Wordmark suffix="Ops" className="mr-2 shrink-0 lg:mr-0 lg:mb-4 lg:px-2 lg:pt-2" />
         {items.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
@@ -109,7 +113,7 @@ function AdminShell() {
             end={end}
             className={({ isActive }) =>
               cn(
-                'flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium',
+                'flex h-10 shrink-0 items-center gap-3 rounded-lg px-3 text-sm font-medium whitespace-nowrap',
                 isActive ? 'bg-surface-2 text-ink' : 'text-ink-2 hover:bg-surface-2 hover:text-ink',
               )
             }
@@ -120,7 +124,7 @@ function AdminShell() {
         ))}
         <AdminUser />
       </nav>
-      <main className="min-w-0 p-6">
+      <main className="min-w-0 p-4 lg:p-6">
         <Outlet />
       </main>
     </div>
@@ -133,9 +137,9 @@ function AdminUser() {
   const signOut = useSignOut('/admin/sign-in');
   if (!user) return null;
   return (
-    <div className="mt-auto border-t border-line px-2 pt-3">
-      <p className="truncate text-sm font-semibold">{user.fullName ?? 'Admin'}</p>
-      <p className="text-xs text-ink-3 tabular">{formatPhone(user.phone)}</p>
+    <div className="ml-auto shrink-0 lg:mt-auto lg:ml-0 lg:border-t lg:border-line lg:px-2 lg:pt-3">
+      <p className="hidden truncate text-sm font-semibold lg:block">{user.fullName ?? 'Admin'}</p>
+      <p className="hidden text-xs text-ink-3 tabular lg:block">{formatPhone(user.phone)}</p>
       <button
         type="button"
         onClick={() => signOut.mutate()}

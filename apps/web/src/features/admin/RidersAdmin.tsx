@@ -212,7 +212,8 @@ export function RidersAdmin() {
           },
           {
             key: 'actions',
-            header: '',
+            header: 'Actions',
+            hideHeader: true,
             align: 'right',
             cell: (r) => (
               <div className="flex justify-end gap-2">

@@ -104,7 +104,8 @@ export function PricingAdmin() {
           },
           {
             key: 'state',
-            header: '',
+            header: 'Status',
+            hideHeader: true,
             cell: (r) => (r.current ? <Badge tone="success">current</Badge> : null),
           },
           {

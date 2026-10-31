@@ -1,7 +1,7 @@
 import Fastify, { type FastifyServerOptions } from 'fastify';
 import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
-import type { Config } from './config/env.ts';
+import { trustProxySetting, type Config } from './config/env.ts';
 import type { Database } from './db/client.ts';
 import { createSmsProvider, type SmsProvider } from './integrations/sms/index.ts';
 import { createGeoProvider, type GeoProvider } from './integrations/maps/index.ts';
@@ -55,7 +55,7 @@ export async function buildApp({
 
   const app = Fastify({
     logger,
-    trustProxy: config.NODE_ENV === 'production',
+    trustProxy: trustProxySetting(config) as FastifyServerOptions['trustProxy'],
     bodyLimit: 256 * 1024,
     genReqId: () => crypto.randomUUID(),
   });

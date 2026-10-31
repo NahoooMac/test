@@ -88,9 +88,11 @@ export function ActiveJob({
     [job.canFailAt],
   );
   const failIn = useCountdown(failDeadline);
+  // A failed delivery's fare is still due; it's collected when the parcel goes back to the sender.
   const collectHere =
     (job.payer === 'sender' && job.status === 'arrived_pickup') ||
-    (job.payer === 'receiver' && job.status === 'arrived_dropoff');
+    (job.payer === 'receiver' && job.status === 'arrived_dropoff') ||
+    job.status === 'returning';
   // The server refuses "delivered" until the fare is recorded; mirror that so the rider knows why.
   const needsPayment = next === 'delivered' && !job.farePayment;
   const error = step.error ?? release.error ?? fail.error ?? logCall.error;

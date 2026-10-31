@@ -173,6 +173,7 @@ export const am: Messages = {
     eta: 'የተገመተ የጉዞ ጊዜ',
     paid: 'ለአሽከርካሪው ተከፍሏል · {{method}}',
     payOnSite: 'ለአሽከርካሪው ይክፈሉ · {{method}}',
+    progress: 'የማድረስ ሂደት',
     notFound: 'ይህን ትዕዛዝ ማግኘት አልቻልንም።',
   },
   rider: {

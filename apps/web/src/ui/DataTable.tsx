@@ -5,6 +5,8 @@ import { Skeleton } from './States.tsx';
 export interface Column<Row> {
   key: string;
   header: string;
+  /** Keep the header for screen readers only (e.g. an actions column). */
+  hideHeader?: boolean;
   cell: (row: Row) => ReactNode;
   align?: 'left' | 'right';
   className?: string;
@@ -29,7 +31,13 @@ export function DataTable<Row>({
   caption?: string;
 }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-line bg-surface">
+    // Focusable so keyboard users can scroll a table wider than a phone screen.
+    <div
+      role="region"
+      aria-label={caption}
+      tabIndex={0}
+      className="overflow-x-auto rounded-2xl border border-line bg-surface"
+    >
       <table className="w-full border-collapse text-sm">
         {caption && <caption className="sr-only">{caption}</caption>}
         <thead>
@@ -43,7 +51,7 @@ export function DataTable<Row>({
                   c.align === 'right' ? 'text-right' : 'text-left',
                 )}
               >
-                {c.header}
+                {c.hideHeader ? <span className="sr-only">{c.header}</span> : c.header}
               </th>
             ))}
           </tr>
