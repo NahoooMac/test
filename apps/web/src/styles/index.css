@@ -6,85 +6,123 @@
 @import '@fontsource/noto-sans-ethiopic/700.css';
 
 /*
- * Design tokens. Components use the semantic Tailwind names below (bg-surface, text-ink-2, …),
- * never raw hex values, so light/dark and accent options swap in one place.
+ * Design tokens — Phase 2 premium design system.
+ *
+ * Components use the semantic Tailwind names (bg-surface, text-ink-2, …), never raw hex.
+ * Light/dark and accent options swap in one place.
  *
  * data-theme="dark"   → night mode (rider default at night; follows system elsewhere)
  * data-accent="amber" → alternative signal colour under evaluation (default is green)
  */
 :root {
   color-scheme: light;
-  --c-canvas: #f5f3ee;
+
+  /* ── Surfaces ── */
+  --c-canvas: #f7f6f3;
   --c-surface: #ffffff;
-  --c-surface-2: #eeebe4;
-  --c-line: #e1ddd4;
+  --c-surface-2: #f0ede7;
+  --c-surface-3: #e8e4dc;
+  --c-line: #e3dfd6;
   --c-line-strong: #c3beb2;
-  --c-ink: #15171a;
-  --c-ink-2: #474b52;
-  /* ≥ 4.5:1 on every light surface incl. surface-2 (axe, WCAG AA). */
-  --c-ink-3: #5f636a;
-  --c-inverse: #15171a;
-  --c-inverse-ink: #f5f3ee;
 
-  --c-accent: #0e6b4a;
-  --c-accent-hover: #0a5a3e;
+  /* ── Text ── */
+  --c-ink: #111318;
+  --c-ink-2: #454952;
+  --c-ink-3: #5f636a; /* ≥ 4.5:1 on every light surface incl. surface-2 (WCAG AA) */
+  --c-inverse: #111318;
+  --c-inverse-ink: #f7f6f3;
+
+  /* ── Brand accent ── */
+  --c-accent: #0d7a52;
+  --c-accent-hover: #096843;
   --c-accent-ink: #ffffff;
-  --c-accent-soft: #dcefe5;
-  --c-accent-soft-ink: #0a4f37;
+  --c-accent-soft: #daf1e6;
+  --c-accent-soft-ink: #064d33;
 
-  --c-success: #1a7040; /* ≥ 4.5:1 on success-soft for small badge text */
-  --c-success-soft: #ddf0e3;
-  --c-warning: #8f5400;
-  --c-warning-soft: #fbebcf;
-  --c-danger: #b42318;
-  --c-danger-soft: #fbe1de;
-  --c-info: #1f5aa6;
-  --c-info-soft: #dce8f7;
-  --c-focus: #1f5aa6;
+  /* ── Semantic status ── */
+  --c-success: #17784a;
+  --c-success-soft: #dbf1e3;
+  --c-warning: #8d5200;
+  --c-warning-soft: #fbeacb;
+  --c-danger: #c0261a;
+  --c-danger-soft: #fde2de;
+  --c-info: #1d5cac;
+  --c-info-soft: #dbe8f8;
+  --c-focus: #1d5cac;
+
+  /* ── Elevation shadows ── */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.09), 0 2px 8px rgba(0,0,0,0.04);
+  --shadow-xl: 0 16px 48px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06);
+
+  /* ── Motion ── */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 120ms;
+  --dur-normal: 200ms;
+  --dur-slow: 350ms;
+
+  /* ── Radius ── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
 }
 
 [data-accent='amber'] {
   --c-accent: #f0a500;
   --c-accent-hover: #d99500;
-  --c-accent-ink: #15171a;
+  --c-accent-ink: #111318;
   --c-accent-soft: #fcefcc;
   --c-accent-soft-ink: #634400;
 }
 
 [data-theme='dark'] {
   color-scheme: dark;
-  --c-canvas: #0f1113;
-  --c-surface: #181b1f;
-  --c-surface-2: #22262b;
-  --c-line: #2c3036;
-  --c-line-strong: #41464e;
-  --c-ink: #f2f1ee;
-  --c-ink-2: #babdc2;
-  --c-ink-3: #8e9299;
-  --c-inverse: #f2f1ee;
-  --c-inverse-ink: #15171a;
 
-  --c-accent: #3dbd8a;
-  --c-accent-hover: #55cc9b;
-  --c-accent-ink: #06130d;
-  --c-accent-soft: #143a2c;
-  --c-accent-soft-ink: #9be3c3;
+  --c-canvas: #0c0e11;
+  --c-surface: #161a1e;
+  --c-surface-2: #1e2228;
+  --c-surface-3: #272c33;
+  --c-line: #2a2f37;
+  --c-line-strong: #3d434c;
+  --c-ink: #f3f2ef;
+  --c-ink-2: #b8bbc2;
+  --c-ink-3: #8c919a;
+  --c-inverse: #f3f2ef;
+  --c-inverse-ink: #111318;
 
-  --c-success: #4cc27e;
-  --c-success-soft: #173826;
+  --c-accent: #42c590;
+  --c-accent-hover: #5ad0a0;
+  --c-accent-ink: #051510;
+  --c-accent-soft: #122e22;
+  --c-accent-soft-ink: #9ce5c5;
+
+  --c-success: #4ec882;
+  --c-success-soft: #14352a;
   --c-warning: #f0b44c;
-  --c-warning-soft: #3d2c0f;
-  --c-danger: #f2766b;
-  --c-danger-soft: #45191a;
-  --c-info: #7fb0f0;
-  --c-info-soft: #172a45;
-  --c-focus: #7fb0f0;
+  --c-warning-soft: #3a2a0c;
+  --c-danger: #f47a70;
+  --c-danger-soft: #411718;
+  --c-info: #82b4f2;
+  --c-info-soft: #152842;
+  --c-focus: #82b4f2;
+
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.35), 0 1px 4px rgba(0,0,0,0.2);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2);
+  --shadow-xl: 0 16px 48px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.25);
 }
 
 [data-theme='dark'][data-accent='amber'] {
   --c-accent: #f5b829;
   --c-accent-hover: #ffc845;
-  --c-accent-ink: #15171a;
+  --c-accent-ink: #111318;
   --c-accent-soft: #3d2f0c;
   --c-accent-soft-ink: #f8d27a;
 }
@@ -97,6 +135,7 @@
   --color-canvas: var(--c-canvas);
   --color-surface: var(--c-surface);
   --color-surface-2: var(--c-surface-2);
+  --color-surface-3: var(--c-surface-3);
   --color-line: var(--c-line);
   --color-line-strong: var(--c-line-strong);
   --color-ink: var(--c-ink);
@@ -118,20 +157,31 @@
   --color-info: var(--c-info);
   --color-info-soft: var(--c-info-soft);
   --color-focus: var(--c-focus);
+
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
 }
 
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
   }
   body {
     @apply bg-canvas text-ink font-sans antialiased;
     font-feature-settings: 'cv11', 'ss01';
+    letter-spacing: -0.011em;
   }
   :focus-visible {
     outline: 2px solid var(--c-focus);
     outline-offset: 2px;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.02em;
   }
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -149,4 +199,22 @@
 
 @utility pb-safe {
   padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+@utility animate-slide-up {
+  animation: slide-up var(--dur-normal) var(--ease-out) both;
+}
+
+@utility animate-fade-in {
+  animation: fade-in var(--dur-normal) var(--ease-out) both;
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }

@@ -34,25 +34,25 @@ export function OfferCard({ offer }: { offer: RiderOffer }) {
       role="alertdialog"
       aria-label={t('rider.offer.title')}
     >
-      <div className="h-1.5 w-full bg-surface-2" aria-hidden>
+      <div className="h-2 w-full rounded-b-full bg-surface-2" aria-hidden>
         <div
-          className="h-full bg-accent transition-[width] duration-1000 ease-linear"
+          className="h-full rounded-b-full bg-accent transition-[width] duration-1000 ease-linear"
           style={{ width: `${pct}%` }}
         />
       </div>
       <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 pt-5">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">{t('rider.offer.title')}</h1>
+          <h1 className="text-[26px] font-bold tracking-tight">{t('rider.offer.title')}</h1>
           <span
-            className="rounded-full bg-ink px-3 py-1 text-sm font-bold text-canvas tabular"
+            className="rounded-full bg-ink px-3.5 py-1 text-sm font-bold text-canvas shadow-[var(--shadow-sm)] tabular"
             aria-live="polite"
           >
             {left}s
           </span>
         </div>
-        <div className="rounded-3xl bg-accent-soft p-5 text-accent-soft-ink">
-          <p className="text-sm font-semibold">{t('rider.offer.youEarn')}</p>
-          <p className="text-5xl font-bold tracking-tight tabular">
+        <div className="rounded-[var(--radius-xl)] bg-accent-soft p-6 text-accent-soft-ink shadow-[var(--shadow-md)]">
+          <p className="text-xs font-semibold tracking-wide uppercase opacity-70">{t('rider.offer.youEarn')}</p>
+          <p className="mt-1 text-[48px] font-bold tracking-tight tabular">
             {d.riderEarning} <span className="text-lg font-semibold">ETB</span>
           </p>
           <p className="mt-2 text-sm tabular">
@@ -76,7 +76,7 @@ export function OfferCard({ offer }: { offer: RiderOffer }) {
           <Notice tone="warning">{t('rider.offer.expired')}</Notice>
         )}
       </div>
-      <div className="grid grid-cols-[1fr_2fr] gap-3 border-t border-line bg-surface px-5 pt-3 pb-safe">
+      <div className="grid grid-cols-[1fr_2fr] gap-3 border-t border-line bg-surface/95 backdrop-blur-md px-5 pt-3 pb-safe">
         <Button
           variant="secondary"
           size="lg"

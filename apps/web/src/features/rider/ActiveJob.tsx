@@ -112,20 +112,23 @@ export function ActiveJob({
 
   return (
     <div className="flex flex-1 flex-col">
-      <MapView
-        className="h-56"
-        markers={markers}
-        line={[job.pickup, job.dropoff]}
-        fit
-        interactive={false}
-      />
+      <div className="relative">
+        <MapView
+          className="h-64"
+          markers={markers}
+          line={[job.pickup, job.dropoff]}
+          fit
+          interactive={false}
+        />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-canvas to-transparent" />
+      </div>
       <div className="flex flex-1 flex-col gap-4 px-4 pt-4 pb-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">
+            <h1 className="text-[26px] font-bold tracking-tight">
               {t(HEADLINE[job.status] ?? `delivery.statuses.${job.status}`)}
             </h1>
-            <p className="text-sm text-ink-3 tabular">
+            <p className="mt-0.5 text-sm text-ink-3 tabular">
               #{job.code} · {job.distanceKm.toFixed(1)} km · {job.riderEarning} ETB
             </p>
           </div>
@@ -147,7 +150,7 @@ export function ActiveJob({
           <div className="mt-3 grid grid-cols-2 gap-2">
             <a
               href={`tel:${stop.contactPhone}`}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-line-strong bg-surface font-semibold"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-line-strong bg-surface font-semibold shadow-[var(--shadow-xs)] transition-all duration-[var(--dur-fast)] ease-[var(--ease-out)] hover:shadow-[var(--shadow-sm)] active:scale-[0.97]"
             >
               <Phone className="size-4" aria-hidden />
               {t('rider.job.call')}
@@ -156,7 +159,7 @@ export function ActiveJob({
               href={navigateUrl(stop)}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-line-strong bg-surface font-semibold"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent font-semibold text-accent-ink shadow-[var(--shadow-sm)] transition-all duration-[var(--dur-fast)] ease-[var(--ease-out)] hover:bg-accent-hover active:scale-[0.97]"
             >
               <Navigation className="size-4" aria-hidden />
               {t('rider.job.navigate')}
@@ -251,7 +254,7 @@ export function ActiveJob({
       </div>
 
       {next && (
-        <div className="sticky bottom-0 border-t border-line bg-surface px-4 pt-3 pb-3">
+        <div className="sticky bottom-0 border-t border-line bg-surface/95 backdrop-blur-md px-4 pt-3 pb-3">
           {needsPayment && (
             <p className="mb-2 text-center text-sm text-ink-3">{t('rider.job.payment.needed')}</p>
           )}

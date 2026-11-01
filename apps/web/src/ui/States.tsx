@@ -16,9 +16,9 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <div className={cn('flex flex-col items-center px-6 py-10 text-center', className)}>
-      <span className="mb-4 flex size-12 items-center justify-center rounded-full bg-surface-2 text-ink-2">
-        {icon ?? <Inbox className="size-6" aria-hidden />}
+    <div className={cn('flex flex-col items-center px-6 py-12 text-center animate-fade-in', className)}>
+      <span className="mb-5 flex size-14 items-center justify-center rounded-full bg-surface-2 text-ink-3 shadow-[var(--shadow-xs)]">
+        {icon ?? <Inbox className="size-7" aria-hidden />}
       </span>
       <h2 className="text-base font-semibold text-ink">{title}</h2>
       {body && <p className="mt-1 max-w-sm text-sm text-ink-2">{body}</p>}
@@ -46,9 +46,9 @@ export function ErrorState({
   return (
     <div
       role="alert"
-      className={cn('flex flex-col items-center px-6 py-10 text-center', className)}
+      className={cn('flex flex-col items-center px-6 py-12 text-center animate-fade-in', className)}
     >
-      <span className="mb-4 flex size-12 items-center justify-center rounded-full bg-danger-soft text-danger">
+      <span className="mb-5 flex size-14 items-center justify-center rounded-full bg-danger-soft text-danger shadow-[var(--shadow-xs)]">
         {offline ? (
           <WifiOff className="size-6" aria-hidden />
         ) : (
@@ -81,7 +81,7 @@ export function Notice({
   return (
     <div
       role={tone === 'danger' ? 'alert' : 'status'}
-      className={cn('rounded-xl px-4 py-3 text-sm font-medium', tones[tone], className)}
+      className={cn('rounded-[var(--radius-md)] px-4 py-3 text-sm font-medium', tones[tone], className)}
     >
       {children}
     </div>

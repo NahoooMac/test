@@ -39,27 +39,28 @@ function RiderSignIn() {
       homePath="/rider"
       intro={
         <>
-          <span className="mb-6 flex size-16 items-center justify-center rounded-2xl bg-accent-soft text-accent-soft-ink">
-            <Bike className="size-9" aria-hidden />
+          <span className="mb-8 flex size-18 items-center justify-center rounded-2xl bg-accent-soft text-accent-soft-ink shadow-[var(--shadow-sm)]">
+            <Bike className="size-10" aria-hidden />
           </span>
-          <h1 className="text-[28px] leading-tight font-bold tracking-tight">
+          <h1 className="text-[32px] leading-[1.1] font-bold tracking-tight">
             {t('auth.rider.title')}
           </h1>
-          <p className="mt-2 text-base text-ink-2">{t('auth.rider.subtitle')}</p>
+          <p className="mt-3 text-[15px] leading-relaxed text-ink-2">
+            {t('auth.rider.subtitle')}
+          </p>
         </>
       }
       layout={(heading, form) => (
-        <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-5 pt-4 pb-safe">
+        <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-5 pt-5 pb-safe">
           <header className="flex items-center justify-between">
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-2.5">
               <Wordmark />
               <Badge tone="accent">Rider</Badge>
             </span>
             <LanguageToggle />
           </header>
-          {/* Content sits low on the screen so it is within thumb reach on large Android phones. */}
-          <div className="flex flex-1 flex-col justify-end pb-8">{heading}</div>
-          {form}
+          <div className="flex flex-1 flex-col justify-end pb-10">{heading}</div>
+          <div className="animate-fade-in">{form}</div>
         </main>
       )}
     />
@@ -75,12 +76,11 @@ function RiderShell() {
   ];
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col">
-      {/* Flex column so a screen can push its main action down to just above the tab bar. */}
       <main className="flex flex-1 flex-col">
         <Outlet />
       </main>
       <nav
-        className="sticky bottom-0 flex border-t border-line bg-surface pb-safe"
+        className="sticky bottom-0 z-30 flex border-t border-line bg-surface/95 backdrop-blur-md pb-safe"
         aria-label="Rider"
       >
         {tabs.map(({ to, label, icon: Icon, end }) => (
@@ -90,13 +90,21 @@ function RiderShell() {
             end={end}
             className={({ isActive }) =>
               cn(
-                'flex flex-1 flex-col items-center gap-1 pt-2 text-xs font-semibold',
-                isActive ? 'text-ink' : 'text-ink-3',
+                'relative flex flex-1 flex-col items-center gap-0.5 pt-2.5 text-[11px] font-semibold',
+                'transition-colors duration-[var(--dur-fast)]',
+                isActive ? 'text-accent' : 'text-ink-3 hover:text-ink-2',
               )
             }
           >
-            <Icon className="size-6" aria-hidden />
-            {label}
+            {({ isActive }) => (
+              <>
+                {isActive && (
+                  <span className="absolute top-0 h-0.5 w-6 rounded-full bg-accent" aria-hidden />
+                )}
+                <Icon className="size-5" aria-hidden strokeWidth={isActive ? 2.5 : 2} />
+                {label}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>

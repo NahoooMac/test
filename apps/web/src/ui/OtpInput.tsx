@@ -92,9 +92,11 @@ export function OtpInput({
           }}
           onFocus={(e) => e.currentTarget.select()}
           className={cn(
-            'h-14 w-full min-w-0 rounded-xl border bg-surface text-center text-2xl font-semibold text-ink tabular outline-none',
-            'focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-50',
-            error ? 'border-danger' : 'border-line-strong',
+            'h-14 w-full min-w-0 rounded-[var(--radius-md)] border bg-surface text-center text-2xl font-semibold text-ink tabular outline-none',
+            'shadow-[var(--shadow-xs)] transition-all duration-[var(--dur-fast)] ease-[var(--ease-out)]',
+            'focus:border-accent focus:ring-2 focus:ring-accent/20 focus:shadow-[var(--shadow-sm)] focus:scale-105',
+            'disabled:opacity-50 disabled:focus:scale-100',
+            error ? 'border-danger ring-1 ring-danger/20' : 'border-line-strong',
           )}
         />
       ))}

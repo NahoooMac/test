@@ -71,14 +71,14 @@ export function ReconciliationAdmin() {
     <div className="flex max-w-7xl flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Reconciliation</h1>
-          <p className="text-ink-2">
+          <h1 className="text-[26px] font-bold tracking-tight">Reconciliation</h1>
+          <p className="text-[15px] text-ink-2">
             Customers pay riders directly. Riders owe the platform its commission until they settle.
           </p>
         </div>
         <a
           href="/api/admin/reconciliation.csv"
-          className="inline-flex h-11 items-center gap-2 rounded-xl border border-line-strong bg-surface px-4 text-sm font-semibold hover:bg-surface-2"
+          className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-lg)] border border-line-strong bg-surface px-4 text-sm font-semibold shadow-[var(--shadow-xs)] transition-all duration-[var(--dur-fast)] hover:bg-surface-2 hover:shadow-[var(--shadow-sm)] active:scale-[0.98]"
         >
           <Download className="size-4" aria-hidden /> Export CSV
         </a>
@@ -93,9 +93,9 @@ export function ReconciliationAdmin() {
             ['Outstanding', t?.outstanding],
           ] as const
         ).map(([k, v]) => (
-          <div key={k} className="rounded-2xl border border-line bg-surface px-4 py-3">
-            <dt className="text-sm text-ink-3">{k}</dt>
-            <dd className="text-2xl font-bold tabular">
+          <div key={k} className="rounded-[var(--radius-lg)] border border-line bg-surface px-4 py-3 shadow-[var(--shadow-xs)] transition-shadow duration-[var(--dur-fast)] hover:shadow-[var(--shadow-sm)]">
+            <dt className="text-xs font-semibold tracking-wide uppercase text-ink-3">{k}</dt>
+            <dd className="mt-1 text-[28px] font-bold tabular">
               {v ?? '—'} <span className="text-sm font-medium text-ink-3">ETB</span>
             </dd>
           </div>

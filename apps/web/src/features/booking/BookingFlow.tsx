@@ -174,7 +174,7 @@ export function BookingFlow() {
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col">
-      <header className="flex items-center gap-3 px-4 pt-4 pb-3">
+      <header className="flex items-center gap-3 px-4 pt-5 pb-3">
         <IconButton
           label={t('common.back')}
           onClick={() => (step === 0 ? navigate('/') : setStep(step - 1))}
@@ -190,7 +190,7 @@ export function BookingFlow() {
         {step === 0 && (
           <>
             <MapView
-              className="mb-4 h-56 rounded-2xl border border-line"
+              className="mb-4 h-56 rounded-[var(--radius-lg)] border border-line shadow-[var(--shadow-sm)]"
               markers={markers}
               line={pickup && dropoff ? [pickup, dropoff] : null}
               fit={markers.length > 1}
@@ -231,7 +231,7 @@ export function BookingFlow() {
         {step === 1 && (
           <div className="flex flex-col gap-6">
             <section className="flex flex-col gap-4">
-              <h1 className="text-xl font-bold">{t('booking.parcelTitle')}</h1>
+              <h1 className="text-[22px] font-bold tracking-tight">{t('booking.parcelTitle')}</h1>
               <TextField
                 label={t('booking.description')}
                 placeholder={t('booking.descriptionPlaceholder')}
@@ -279,7 +279,7 @@ export function BookingFlow() {
           <div className="flex flex-col gap-6">
             <section>
               <div className="mb-3 flex items-baseline justify-between gap-3">
-                <h1 className="text-xl font-bold">{t('booking.vehicleTitle')}</h1>
+                <h1 className="text-[22px] font-bold tracking-tight">{t('booking.vehicleTitle')}</h1>
                 {quote.data && (
                   <span className="text-sm text-ink-3 tabular">
                     {t('booking.distance', { km: quote.data.distanceKm.toFixed(1) })}
@@ -359,7 +359,7 @@ export function BookingFlow() {
 
         {step === 3 && chosen && pickup && dropoff && (
           <div className="flex flex-col gap-4">
-            <h1 className="text-xl font-bold">{t('booking.confirmTitle')}</h1>
+            <h1 className="text-[22px] font-bold tracking-tight">{t('booking.confirmTitle')}</h1>
             <Panel className="p-4">
               <RouteLines
                 from={pickup.name}
@@ -383,7 +383,7 @@ export function BookingFlow() {
               />
               <div className="flex items-baseline justify-between px-4 py-4">
                 <span className="font-semibold">{t('booking.fare')}</span>
-                <span className="text-2xl font-bold tabular">
+                <span className="text-[26px] font-bold tracking-tight tabular">
                   {chosen.fare} <span className="text-sm font-medium text-ink-3">ETB</span>
                 </span>
               </div>
@@ -404,7 +404,7 @@ export function BookingFlow() {
         )}
       </main>
 
-      <footer className="sticky bottom-0 border-t border-line bg-surface px-4 pt-3 pb-safe">
+      <footer className="sticky bottom-0 border-t border-line bg-surface/95 backdrop-blur-md px-4 pt-3 pb-safe">
         {step < 3 ? (
           <Button size="lg" block onClick={next} disabled={step === 2 && !chosen}>
             {t('booking.continue')}

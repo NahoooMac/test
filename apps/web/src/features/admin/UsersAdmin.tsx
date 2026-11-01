@@ -57,8 +57,8 @@ export function UsersAdmin() {
   return (
     <div className="flex max-w-6xl flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Users</h1>
-        <p className="text-ink-2">
+        <h1 className="text-[26px] font-bold tracking-tight">Users</h1>
+        <p className="text-[15px] text-ink-2">
           Find an account by phone or name. Suspending signs the person out on every device.
         </p>
       </div>

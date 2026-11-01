@@ -8,6 +8,16 @@ export type YCoords = [number, number];
 
 export interface YGeoObject {
   readonly __brand?: 'YGeoObject';
+  geometry?: { setCoordinates(coords: YCoords): void; getCoordinates(): YCoords };
+  options?: { set(key: string, value: unknown): void };
+}
+
+export interface YRoutePath {
+  geometry: { getCoordinates(): YCoords[] };
+}
+
+export interface YRoute extends YGeoObject {
+  getPaths(): { get(i: number): YRoutePath; getLength(): number };
 }
 
 export interface YMap {
@@ -18,6 +28,7 @@ export interface YMap {
   behaviors: { disable(names: string[]): void };
   events: { add(type: string, handler: () => void): void };
   container: { fitToViewport(): void };
+  converter: { globalToPage(coords: YCoords): [number, number] };
   destroy(): void;
 }
 
@@ -27,6 +38,8 @@ export interface Ymaps21 {
   Placemark: new (coords: YCoords, properties: object, options: object) => YGeoObject;
   Polyline: new (coords: YCoords[], properties: object, options: object) => YGeoObject;
   templateLayoutFactory: { createClass(template: string): unknown };
+  route(points: YCoords[], params?: object): Promise<YRoute>;
+  projection: { fromGlobalPixels(gp: [number, number], zoom: number): YCoords };
 }
 
 declare global {

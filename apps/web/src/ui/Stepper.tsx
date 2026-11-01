@@ -20,9 +20,10 @@ export function Stepper({ steps, current }: { steps: string[]; current: number }
           >
             <span
               className={cn(
-                'flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold',
-                done && 'bg-accent text-accent-ink',
-                active && 'bg-ink text-canvas',
+                'flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
+                'transition-all duration-[var(--dur-normal)] ease-[var(--ease-out)]',
+                done && 'bg-accent text-accent-ink shadow-[var(--shadow-xs)]',
+                active && 'bg-ink text-canvas shadow-[var(--shadow-sm)]',
                 !done && !active && 'bg-surface-2 text-ink-3',
               )}
             >
@@ -40,7 +41,10 @@ export function Stepper({ steps, current }: { steps: string[]; current: number }
             {i < steps.length - 1 && (
               <span
                 aria-hidden
-                className={cn('h-px min-w-3 flex-1', done ? 'bg-accent' : 'bg-line-strong')}
+                className={cn(
+                  'h-px min-w-3 flex-1 transition-colors duration-[var(--dur-normal)]',
+                  done ? 'bg-accent' : 'bg-line-strong',
+                )}
               />
             )}
           </li>

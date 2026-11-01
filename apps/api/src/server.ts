@@ -3,6 +3,9 @@ import { createDatabase } from './db/client.ts';
 import { runMigrations } from './db/migrate.ts';
 import { buildApp } from './app.ts';
 import { serveWebApp } from './web-static.ts';
+import { seedDemoAccounts } from './demo/seed.ts';
+import { DemoBot } from './demo/bot.ts';
+import { systemClock } from './shared/clock.ts';
 
 loadDotEnv();
 // Local production preview serves the web app from the API itself, so the browser's origin is the
@@ -10,9 +13,9 @@ loadDotEnv();
 if (process.argv.includes('--serve-web') && !process.env.APP_ORIGIN) {
   process.env.APP_ORIGIN = `http://localhost:${process.env.API_PORT ?? 3000}`;
 }
+const demoMode = process.argv.includes('--demo') && process.env.NODE_ENV !== 'production';
+if (demoMode) process.env.DEMO_MODE = 'true';
 const config = loadConfig();
-// `--local-db` ignores DATABASE_URL and uses the embedded database, so unreleased migrations and
-// test data never touch Neon.
 const localDb = process.argv.includes('--local-db') && config.NODE_ENV !== 'production';
 const database = createDatabase({
   url: localDb ? undefined : config.DATABASE_URL,
@@ -25,7 +28,7 @@ if (database.driver === 'pglite' && config.NODE_ENV !== 'production') {
   await runMigrations(database);
 }
 
-const { app, dispatcher } = await buildApp({ config, database });
+const { app, dispatcher, deliveries, riders } = await buildApp({ config, database });
 
 // `--serve-web` serves ../web/dist (production preview); WEB_DIST_DIR sets the folder explicitly.
 const webDir =
@@ -33,6 +36,14 @@ const webDir =
 if (webDir) {
   await serveWebApp(app, webDir);
   app.log.info(`serving web app from ${webDir}`);
+}
+
+// Demo mode: seed accounts and start the bot that auto-accepts and auto-creates deliveries.
+let demoBot: DemoBot | null = null;
+if (config.DEMO_MODE && config.NODE_ENV !== 'production') {
+  await seedDemoAccounts(database.db);
+  demoBot = new DemoBot(database.db, systemClock, deliveries, riders, app.log);
+  demoBot.start();
 }
 
 // Dispatch loop: lapse expired offers and re-offer waiting deliveries. Safe to run on several
@@ -44,6 +55,7 @@ const dispatchTimer = setInterval(() => {
 
 const shutdown = async (signal: string) => {
   app.log.info({ signal }, 'shutting down');
+  demoBot?.stop();
   clearInterval(dispatchTimer);
   await app.close();
   await database.close();

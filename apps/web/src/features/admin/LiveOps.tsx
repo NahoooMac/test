@@ -64,8 +64,8 @@ export function LiveOps() {
     <div className="flex max-w-7xl flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Live operations</h1>
-          <p className="text-ink-2">
+          <h1 className="text-[26px] font-bold tracking-tight">Live operations</h1>
+          <p className="text-[15px] text-ink-2">
             Riders on the road and deliveries in progress across Addis Ababa.
           </p>
         </div>
@@ -92,9 +92,9 @@ export function LiveOps() {
             ['In progress', counts.active],
           ] as const
         ).map(([label, value]) => (
-          <div key={label} className="rounded-2xl border border-line bg-surface px-4 py-3">
-            <dt className="text-sm text-ink-3">{label}</dt>
-            <dd className="text-2xl font-bold tabular">{ops.isPending ? '—' : value}</dd>
+          <div key={label} className="rounded-[var(--radius-lg)] border border-line bg-surface px-4 py-3 shadow-[var(--shadow-xs)] transition-shadow duration-[var(--dur-fast)] hover:shadow-[var(--shadow-sm)]">
+            <dt className="text-xs font-semibold tracking-wide uppercase text-ink-3">{label}</dt>
+            <dd className="mt-1 text-[28px] font-bold tabular">{ops.isPending ? '—' : value}</dd>
           </div>
         ))}
       </dl>
@@ -102,7 +102,7 @@ export function LiveOps() {
       {attention.length > 0 && (
         <div
           role="alert"
-          className="rounded-2xl bg-warning-soft px-4 py-3 text-sm font-medium text-warning"
+          className="rounded-[var(--radius-lg)] bg-warning-soft px-4 py-3 text-sm font-medium text-warning shadow-[var(--shadow-xs)]"
         >
           {attention.length} {attention.length === 1 ? 'delivery has' : 'deliveries have'} waited
           over 5 minutes for a rider: {attention.map((d) => `#${d.code}`).join(', ')}

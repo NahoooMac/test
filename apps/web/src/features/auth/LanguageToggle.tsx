@@ -22,8 +22,8 @@ export function LanguageToggle({ className }: { className?: string }) {
             aria-pressed={active}
             onClick={() => void i18n.changeLanguage(o.value)}
             className={cn(
-              'h-8 min-w-11 rounded-full px-3 text-sm font-semibold transition-colors',
-              active ? 'bg-surface text-ink shadow-sm' : 'text-ink-3 hover:text-ink',
+              'h-8 min-w-11 rounded-full px-3 text-sm font-semibold transition-all duration-[var(--dur-fast)]',
+              active ? 'bg-surface text-ink shadow-[var(--shadow-sm)]' : 'text-ink-3 hover:text-ink',
             )}
           >
             {o.label}

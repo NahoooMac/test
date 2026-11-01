@@ -123,8 +123,8 @@ function DeliveryListAdmin() {
   return (
     <div className="flex max-w-7xl flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Deliveries</h1>
-        <p className="text-ink-2">
+        <h1 className="text-[26px] font-bold tracking-tight">Deliveries</h1>
+        <p className="text-[15px] text-ink-2">
           Search by code, customer name or phone. Open a delivery to assign, re-offer or cancel it.
         </p>
       </div>
@@ -147,7 +147,7 @@ function DeliveryListAdmin() {
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as DeliveryStatus | '')}
-            className="h-14 rounded-xl border border-line-strong bg-surface px-3 text-base"
+            className="h-14 rounded-[var(--radius-lg)] border border-line-strong bg-surface px-3 text-base shadow-[var(--shadow-xs)] transition-shadow duration-[var(--dur-fast)] focus:shadow-[var(--shadow-sm)]"
           >
             <option value="">All</option>
             {DELIVERY_STATUSES.map((s) => (
@@ -268,7 +268,7 @@ function DeliveryDetailAdmin({ id }: { id: string }) {
       </Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="font-mono text-2xl font-bold">#{d.code}</h1>
+          <h1 className="font-mono text-[26px] font-bold tracking-tight">#{d.code}</h1>
           <p className="text-ink-2">
             {d.vehicleType === 'motorcycle' ? 'Motorcycle' : 'Bicycle'} · {d.distanceKm.toFixed(1)}{' '}
             km · booked {when(d.createdAt)}

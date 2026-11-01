@@ -42,10 +42,13 @@ export function ChoiceGroup<T extends string>({
             <label
               key={c.value}
               className={cn(
-                'relative flex cursor-pointer items-center gap-3 rounded-xl border bg-surface p-3 transition-colors',
+                'relative flex cursor-pointer items-center gap-3 rounded-[var(--radius-md)] border bg-surface p-3',
+                'shadow-[var(--shadow-xs)] transition-all duration-[var(--dur-fast)] ease-[var(--ease-out)]',
                 'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus',
-                checked ? 'border-ink ring-1 ring-ink' : 'border-line-strong hover:bg-surface-2',
-                c.disabled && 'cursor-not-allowed opacity-50 hover:bg-surface',
+                checked
+                  ? 'border-accent ring-1 ring-accent shadow-[var(--shadow-sm)]'
+                  : 'border-line-strong hover:bg-surface-2 hover:shadow-[var(--shadow-sm)]',
+                c.disabled && 'cursor-not-allowed opacity-50 hover:bg-surface hover:shadow-[var(--shadow-xs)]',
               )}
             >
               <input

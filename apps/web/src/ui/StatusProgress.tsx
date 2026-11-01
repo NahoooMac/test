@@ -29,8 +29,12 @@ export function StatusProgress({
           <span
             key={s}
             className={cn(
-              'h-1.5 flex-1 rounded-full',
-              i < current ? 'bg-accent' : i === current ? 'bg-accent/45' : 'bg-surface-2',
+              'h-1.5 flex-1 rounded-full transition-all duration-[var(--dur-slow)] ease-[var(--ease-out)]',
+              i < current
+                ? 'bg-accent'
+                : i === current
+                  ? 'bg-accent/45 animate-pulse'
+                  : 'bg-surface-2',
             )}
           />
         ))}

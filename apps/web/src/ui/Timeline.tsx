@@ -25,9 +25,9 @@ export function Timeline({ items }: { items: TimelineItem[] }) {
           <span
             aria-hidden
             className={cn(
-              'relative mt-1 size-4 shrink-0 rounded-full border-2',
-              item.state === 'done' && 'border-accent bg-accent',
-              item.state === 'current' && 'border-accent bg-surface ring-4 ring-accent/15',
+              'relative mt-1 size-4 shrink-0 rounded-full border-2 transition-all duration-[var(--dur-normal)]',
+              item.state === 'done' && 'border-accent bg-accent shadow-[var(--shadow-xs)]',
+              item.state === 'current' && 'border-accent bg-surface ring-4 ring-accent/20 shadow-[var(--shadow-sm)]',
               item.state === 'upcoming' && 'border-line-strong bg-surface',
             )}
           />

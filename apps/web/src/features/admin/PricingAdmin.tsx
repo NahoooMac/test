@@ -48,8 +48,8 @@ export function PricingAdmin() {
   return (
     <div className="flex max-w-6xl flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Pricing</h1>
-        <p className="text-ink-2">
+        <h1 className="text-[26px] font-bold tracking-tight">Pricing</h1>
+        <p className="text-[15px] text-ink-2">
           Fare = max(minimum, base + per-km × distance), rounded up to the next 5 ETB. Changes apply
           to new bookings immediately; existing deliveries keep the rates they were booked with.
         </p>

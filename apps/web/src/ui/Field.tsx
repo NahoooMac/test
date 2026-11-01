@@ -32,9 +32,10 @@ export function TextField({
       </label>
       <div
         className={cn(
-          'flex h-14 items-center rounded-xl border bg-surface transition-colors',
-          'focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20',
-          error ? 'border-danger' : 'border-line-strong',
+          'flex h-14 items-center rounded-[var(--radius-md)] border bg-surface shadow-[var(--shadow-xs)]',
+          'transition-all duration-[var(--dur-fast)] ease-[var(--ease-out)]',
+          'focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 focus-within:shadow-[var(--shadow-sm)]',
+          error ? 'border-danger ring-1 ring-danger/20' : 'border-line-strong',
         )}
       >
         {prefix && (

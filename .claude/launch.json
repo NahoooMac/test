@@ -14,6 +14,12 @@
       "port": 5173
     },
     {
+      "name": "dev-demo",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:demo"],
+      "port": 5173
+    },
+    {
       "name": "prod-preview",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "preview:prod"],

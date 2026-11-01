@@ -41,7 +41,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div
               key={t.id}
               role={t.tone === 'danger' ? 'alert' : 'status'}
-              className="pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-2xl bg-inverse px-4 py-3 text-inverse-ink shadow-lg"
+              className="pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-[var(--radius-lg)] bg-inverse px-4 py-3 text-inverse-ink shadow-[var(--shadow-lg)] animate-slide-up"
             >
               <Icon
                 aria-hidden

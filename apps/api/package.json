@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch --clear-screen=false src/server.ts",
     "dev:local": "tsx watch --clear-screen=false src/server.ts --local-db",
+    "dev:demo": "tsx watch --clear-screen=false src/server.ts --local-db --demo",
     "start": "node --disable-warning=ExperimentalWarning src/server.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",

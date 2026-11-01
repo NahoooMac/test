@@ -61,6 +61,11 @@ const envSchema = z
     SESSION_IDLE_DAYS: z.coerce.number().int().positive().default(30),
     SESSION_ABSOLUTE_DAYS: z.coerce.number().int().positive().default(90),
     ADMIN_SESSION_HOURS: z.coerce.number().int().positive().default(12),
+
+    DEMO_MODE: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((v) => v === 'true'),
   })
   .superRefine((env, ctx) => {
     if (env.SMS_PROVIDER === 'afromessage' && !env.AFROMESSAGE_TOKEN) {

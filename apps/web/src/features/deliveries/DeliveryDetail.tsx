@@ -92,7 +92,7 @@ export function DeliveryDetail() {
     <div className="pb-6">
       <div className="relative">
         <MapView
-          className="h-60"
+          className="h-64"
           markers={[
             { id: 'p', point: d.pickup, kind: 'pickup' },
             { id: 'd', point: d.dropoff, kind: 'dropoff' },
@@ -104,16 +104,17 @@ export function DeliveryDetail() {
           fit
           interactive={false}
         />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-canvas to-transparent" />
         <div className="absolute top-4 left-4">{back}</div>
       </div>
 
-      <div className="flex flex-col gap-4 px-4 pt-4">
+      <div className="flex flex-col gap-5 px-4 pt-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">
+            <h1 className="text-[26px] font-bold tracking-tight">
               {t(`delivery.statuses.${d.status}`)}
             </h1>
-            <p className="text-sm text-ink-3 tabular">
+            <p className="mt-0.5 text-sm text-ink-3 tabular">
               #{d.code} · {d.distanceKm.toFixed(1)} km · ~{d.etaMin} min
             </p>
           </div>
@@ -161,7 +162,7 @@ export function DeliveryDetail() {
             {d.rider.plate && <PlateBadge>{d.rider.plate}</PlateBadge>}
             <a
               href={`tel:${d.rider.phone}`}
-              className="inline-flex h-11 items-center gap-2 rounded-xl bg-accent px-4 font-semibold text-accent-ink"
+              className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 font-semibold text-accent-ink shadow-[var(--shadow-sm)] transition-all duration-[var(--dur-fast)] hover:bg-accent-hover active:scale-95"
             >
               <Phone className="size-4" aria-hidden />
               {t('delivery.call')}

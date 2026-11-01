@@ -126,5 +126,5 @@ export async function buildApp({
     { prefix: '/api' },
   );
 
-  return { app, dispatcher, hub };
+  return { app, dispatcher, hub, deliveries, riders };
 }

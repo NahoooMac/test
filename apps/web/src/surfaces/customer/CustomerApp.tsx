@@ -56,21 +56,23 @@ function CustomerSignIn() {
       homePath="/"
       intro={
         <>
-          <RouteMotif className="mb-8 w-full max-w-xs" />
-          <h1 className="text-[28px] leading-tight font-bold tracking-tight text-balance">
+          <RouteMotif className="mb-10 w-full max-w-[280px] opacity-80" />
+          <h1 className="text-[32px] leading-[1.1] font-bold tracking-tight text-balance">
             {t('auth.customer.title')}
           </h1>
-          <p className="mt-2 text-base text-ink-2">{t('auth.customer.subtitle')}</p>
+          <p className="mt-3 text-[15px] leading-relaxed text-ink-2">
+            {t('auth.customer.subtitle')}
+          </p>
         </>
       }
       layout={(heading, form) => (
-        <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-5 pt-4 pb-safe">
+        <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-5 pt-5 pb-safe">
           <header className="flex items-center justify-between">
-            <Wordmark />
+            <Wordmark size="lg" />
             <LanguageToggle />
           </header>
-          <div className="flex flex-1 flex-col justify-center py-8">{heading}</div>
-          {form}
+          <div className="flex flex-1 flex-col justify-center py-10">{heading}</div>
+          <div className="animate-fade-in">{form}</div>
         </main>
       )}
     />
@@ -87,33 +89,44 @@ function CustomerHome() {
 
   return (
     <div className="flex flex-col">
-      <MapView className="h-[38dvh] min-h-56" zoom={12} interactive={false} />
-      <div className="flex flex-col gap-4 px-4 pt-4 pb-6">
+      <div className="relative">
+        <MapView className="h-[38dvh] min-h-56" zoom={12} interactive={false} />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-canvas to-transparent" />
+      </div>
+      <div className="flex flex-col gap-5 px-4 pt-4 pb-6">
         <div>
           <p className="text-sm text-ink-3">Selam{firstName ? `, ${firstName}` : ''}</p>
-          <h1 className="text-2xl font-bold tracking-tight">{t('booking.title')}</h1>
+          <h1 className="text-[26px] font-bold tracking-tight">{t('booking.title')}</h1>
         </div>
         <Link
           to="/send"
-          className="flex h-14 items-center gap-3 rounded-2xl bg-ink px-4 font-semibold text-canvas shadow-sm"
+          className={cn(
+            'flex h-14 items-center gap-3 rounded-[var(--radius-lg)] bg-ink px-5 font-semibold text-canvas',
+            'shadow-[var(--shadow-md)] transition-all duration-[var(--dur-fast)] ease-[var(--ease-out)]',
+            'hover:shadow-[var(--shadow-lg)] active:scale-[0.98]',
+          )}
         >
-          <Search className="size-5" aria-hidden />
+          <Search className="size-5 opacity-60" aria-hidden />
           <span className="flex-1">{t('booking.chooseDropoff')}</span>
-          <ArrowRight className="size-5" aria-hidden />
+          <ArrowRight className="size-5 opacity-60" aria-hidden />
         </Link>
 
         {deliveries.isPending && <Skeleton className="h-24 w-full" />}
         {open.length > 0 && (
-          <section className="flex flex-col gap-2">
-            <h2 className="text-sm font-semibold text-ink-2">{t('delivery.active')}</h2>
+          <section className="flex flex-col gap-2.5 animate-fade-in">
+            <h2 className="text-xs font-semibold tracking-wide text-ink-3 uppercase">
+              {t('delivery.active')}
+            </h2>
             {open.map((d) => (
               <DeliveryCard key={d.id} d={d} />
             ))}
           </section>
         )}
         {recent.length > 0 && (
-          <section className="flex flex-col gap-2">
-            <h2 className="text-sm font-semibold text-ink-2">{t('delivery.recent')}</h2>
+          <section className="flex flex-col gap-2.5">
+            <h2 className="text-xs font-semibold tracking-wide text-ink-3 uppercase">
+              {t('delivery.recent')}
+            </h2>
             {recent.map((d) => (
               <DeliveryCard key={d.id} d={d} />
             ))}
@@ -137,7 +150,7 @@ function CustomerShell() {
         <Outlet />
       </main>
       <nav
-        className="sticky bottom-0 flex border-t border-line bg-surface pb-safe"
+        className="sticky bottom-0 z-30 flex border-t border-line bg-surface/95 backdrop-blur-md pb-safe"
         aria-label="Main"
       >
         {tabs.map(({ to, label, icon: Icon, end }) => (
@@ -147,13 +160,21 @@ function CustomerShell() {
             end={end}
             className={({ isActive }) =>
               cn(
-                'flex flex-1 flex-col items-center gap-1 pt-2 text-xs font-medium',
-                isActive ? 'text-ink' : 'text-ink-3',
+                'relative flex flex-1 flex-col items-center gap-0.5 pt-2.5 text-[11px] font-semibold',
+                'transition-colors duration-[var(--dur-fast)]',
+                isActive ? 'text-accent' : 'text-ink-3 hover:text-ink-2',
               )
             }
           >
-            <Icon className="size-6" aria-hidden />
-            {label}
+            {({ isActive }) => (
+              <>
+                {isActive && (
+                  <span className="absolute top-0 h-0.5 w-6 rounded-full bg-accent" aria-hidden />
+                )}
+                <Icon className="size-5" aria-hidden strokeWidth={isActive ? 2.5 : 2} />
+                {label}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>

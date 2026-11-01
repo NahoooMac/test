@@ -38,14 +38,14 @@ export function ApplyForm() {
       noValidate
       className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 px-5 pt-8 pb-safe"
     >
-      <div>
-        <span className="mb-5 flex size-14 items-center justify-center rounded-2xl bg-accent-soft text-accent-soft-ink">
+      <div className="animate-fade-in">
+        <span className="mb-5 flex size-16 items-center justify-center rounded-[var(--radius-xl)] bg-accent-soft text-accent-soft-ink shadow-[var(--shadow-sm)]">
           <Bike className="size-8" aria-hidden />
         </span>
-        <h1 className="text-[28px] leading-tight font-bold tracking-tight">
+        <h1 className="text-[32px] leading-[1.1] font-bold tracking-tight">
           {t('rider.apply.title')}
         </h1>
-        <p className="mt-2 text-ink-2">{t('rider.apply.subtitle')}</p>
+        <p className="mt-3 text-[15px] leading-relaxed text-ink-2">{t('rider.apply.subtitle')}</p>
       </div>
       <TextField
         label={t('rider.apply.fullName')}

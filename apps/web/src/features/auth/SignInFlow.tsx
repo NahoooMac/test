@@ -90,9 +90,9 @@ export function SignInFlow({
 
 function StepHeading({ title, body }: { title: string; body: string }) {
   return (
-    <div>
-      <h1 className="text-[28px] leading-tight font-bold tracking-tight">{title}</h1>
-      <p className="mt-2 text-base text-ink-2 tabular">{body}</p>
+    <div className="animate-fade-in">
+      <h1 className="text-[32px] leading-[1.1] font-bold tracking-tight">{title}</h1>
+      <p className="mt-3 text-[15px] leading-relaxed text-ink-2 tabular">{body}</p>
     </div>
   );
 }

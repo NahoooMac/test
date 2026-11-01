@@ -97,11 +97,11 @@ export function RidersAdmin() {
   return (
     <div className="flex max-w-6xl flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Riders</h1>
-        <p className="text-ink-2">Review applications and manage who can receive jobs.</p>
+        <h1 className="text-[26px] font-bold tracking-tight">Riders</h1>
+        <p className="text-[15px] text-ink-2">Review applications and manage who can receive jobs.</p>
       </div>
 
-      <div role="tablist" className="flex flex-wrap gap-1 rounded-xl bg-surface-2 p-1 self-start">
+      <div role="tablist" className="flex flex-wrap gap-1 rounded-[var(--radius-lg)] bg-surface-2 p-1 self-start">
         {TABS.map((x) => (
           <button
             key={x.value}
@@ -109,8 +109,8 @@ export function RidersAdmin() {
             aria-selected={tab === x.value}
             onClick={() => setTab(x.value)}
             className={cn(
-              'h-9 rounded-lg px-3 text-sm font-semibold',
-              tab === x.value ? 'bg-surface text-ink shadow-sm' : 'text-ink-3 hover:text-ink',
+              'h-9 rounded-[var(--radius-md)] px-3 text-sm font-semibold transition-all duration-[var(--dur-fast)]',
+              tab === x.value ? 'bg-surface text-ink shadow-[var(--shadow-sm)]' : 'text-ink-3 hover:text-ink',
             )}
           >
             {x.label}
@@ -119,7 +119,7 @@ export function RidersAdmin() {
       </div>
 
       {pendingReason && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4">
+        <div className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-line bg-surface p-4 shadow-[var(--shadow-sm)]">
           <p className="font-semibold">
             {pendingReason.decision === 'reject' ? 'Reject' : 'Suspend'}{' '}
             {pendingReason.rider.fullName ?? formatPhone(pendingReason.rider.phone)}

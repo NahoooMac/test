@@ -108,7 +108,7 @@ export function LocationPicker({
       </header>
 
       <div className="px-4">
-        <label className="flex h-14 items-center gap-3 rounded-xl border border-line-strong bg-surface px-4 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20">
+        <label className="flex h-14 items-center gap-3 rounded-[var(--radius-lg)] border border-line-strong bg-surface px-4 shadow-[var(--shadow-xs)] transition-shadow duration-[var(--dur-fast)] focus-within:border-accent focus-within:shadow-[var(--shadow-sm)] focus-within:ring-2 focus-within:ring-accent/20">
           <Search className="size-5 shrink-0 text-ink-3" aria-hidden />
           <span className="sr-only">{t('booking.searchPlaceholder')}</span>
           <input
@@ -171,7 +171,7 @@ export function LocationPicker({
           <p className="px-1 pt-2 text-sm text-ink-2">{t('booking.noResults')}</p>
         )}
         {results.data && results.data.length > 0 && (
-          <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
+          <ul className="divide-y divide-line overflow-hidden rounded-[var(--radius-lg)] border border-line bg-surface shadow-[var(--shadow-xs)]">
             {results.data.map((p) => (
               <li key={p.ref}>
                 <button
@@ -285,12 +285,12 @@ function PinOnMap({
           <IconButton label={t('common.back')} onClick={onBack}>
             <ChevronLeft className="size-5" aria-hidden />
           </IconButton>
-          <span className="flex h-11 flex-1 items-center rounded-full border border-line bg-surface px-4 text-sm font-semibold shadow-sm">
+          <span className="flex h-11 flex-1 items-center rounded-full border border-line bg-surface px-4 text-sm font-semibold shadow-[var(--shadow-sm)]">
             {title}
           </span>
         </div>
       </div>
-      <div className="rounded-t-3xl border-t border-line bg-surface px-4 pt-4 pb-safe">
+      <div className="rounded-t-[var(--radius-2xl)] border-t border-line bg-surface px-4 pt-4 pb-safe shadow-[var(--shadow-xl)]">
         <p className="text-xs text-ink-3">{t('booking.moveMap')}</p>
         <p
           className={cn(

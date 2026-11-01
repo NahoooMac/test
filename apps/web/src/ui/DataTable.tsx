@@ -36,7 +36,7 @@ export function DataTable<Row>({
       role="region"
       aria-label={caption}
       tabIndex={0}
-      className="overflow-x-auto rounded-2xl border border-line bg-surface"
+      className="overflow-x-auto rounded-[var(--radius-lg)] border border-line bg-surface shadow-[var(--shadow-xs)]"
     >
       <table className="w-full border-collapse text-sm">
         {caption && <caption className="sr-only">{caption}</caption>}
@@ -78,7 +78,7 @@ export function DataTable<Row>({
                 key={rowKey(row)}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
                 className={cn(
-                  'border-b border-line last:border-0',
+                  'border-b border-line last:border-0 transition-colors duration-[var(--dur-fast)]',
                   onRowClick && 'cursor-pointer hover:bg-surface-2',
                 )}
               >

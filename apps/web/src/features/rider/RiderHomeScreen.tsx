@@ -78,12 +78,12 @@ export function RiderHomeScreen() {
   if (home.data.job) return <ActiveJob job={home.data.job} position={gps.position} />;
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className="flex flex-col gap-5 p-4">
       {home.data.offer && <OfferCard offer={home.data.offer} />}
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex items-center justify-between pt-3">
         <div className="min-w-0">
           <p className="truncate text-sm text-ink-3">{profile.fullName}</p>
-          <h1 className="text-2xl font-bold tracking-tight">
+          <h1 className="text-[26px] font-bold tracking-tight">
             {online ? t('rider.online') : t('rider.offline')}
           </h1>
         </div>
@@ -97,7 +97,9 @@ export function RiderHomeScreen() {
         disabled={toggle.isPending}
         onClick={() => toggle.mutate(!online)}
         className={cn(
-          'flex h-20 items-center justify-between rounded-3xl px-6 text-left text-lg font-bold transition-colors disabled:opacity-60',
+          'flex h-20 items-center justify-between rounded-[var(--radius-xl)] px-6 text-left text-lg font-bold',
+          'shadow-[var(--shadow-md)] transition-all duration-[var(--dur-normal)] ease-[var(--ease-out)]',
+          'active:scale-[0.98] disabled:opacity-60',
           online ? 'bg-accent text-accent-ink' : 'bg-ink text-canvas',
         )}
       >
@@ -105,11 +107,11 @@ export function RiderHomeScreen() {
         <span
           aria-hidden
           className={cn(
-            'flex h-9 w-16 items-center rounded-full p-1',
+            'flex h-9 w-16 items-center rounded-full p-1 transition-all duration-[var(--dur-normal)]',
             online ? 'justify-end bg-black/20' : 'justify-start bg-white/20',
           )}
         >
-          <span className="size-7 rounded-full bg-white shadow" />
+          <span className="size-7 rounded-full bg-white shadow-[var(--shadow-sm)] transition-all duration-[var(--dur-normal)] ease-[var(--ease-spring)]" />
         </span>
       </button>
       {toggle.isError && <Notice tone="danger">{toggle.error.message}</Notice>}
@@ -197,11 +199,11 @@ export function RiderEarnings() {
     .reduce((s, j) => s + Math.round(Number(j.riderEarning) * 100), 0);
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <h1 className="pt-2 text-2xl font-bold tracking-tight">{t('rider.earnings.title')}</h1>
-      <div className="rounded-3xl bg-accent-soft p-5 text-accent-soft-ink">
-        <p className="text-sm font-semibold">{t('rider.earnings.today')}</p>
-        <p className="text-4xl font-bold tabular">
+    <div className="flex flex-col gap-5 p-4">
+      <h1 className="pt-3 text-[26px] font-bold tracking-tight">{t('rider.earnings.title')}</h1>
+      <div className="rounded-[var(--radius-xl)] bg-accent-soft p-6 text-accent-soft-ink shadow-[var(--shadow-sm)]">
+        <p className="text-xs font-semibold tracking-wide uppercase opacity-70">{t('rider.earnings.today')}</p>
+        <p className="mt-1 text-[40px] font-bold tracking-tight tabular">
           {(todaySum / 100).toFixed(2)} <span className="text-base font-semibold">ETB</span>
         </p>
       </div>

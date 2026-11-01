@@ -13,7 +13,7 @@ export function AccountPanel({ signInPath }: { signInPath: string }) {
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      <h1 className="pt-2 text-2xl font-bold tracking-tight">{t('account.title')}</h1>
+      <h1 className="pt-3 text-[26px] font-bold tracking-tight">{t('account.title')}</h1>
       <Panel>
         <dl className="divide-y divide-line">
           <Row label={t('account.name')} value={user.fullName ?? '—'} />

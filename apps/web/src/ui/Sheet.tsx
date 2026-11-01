@@ -20,7 +20,7 @@ export function Sheet({
     <section
       aria-label={label}
       className={cn(
-        'rounded-t-3xl border-t border-line bg-surface shadow-[0_-8px_24px_rgba(0,0,0,0.08)]',
+        'rounded-t-[var(--radius-2xl)] border-t border-line bg-surface shadow-[var(--shadow-xl)]',
         className,
       )}
     >
@@ -34,6 +34,13 @@ export function Sheet({
 /** Card surface for grouped content. */
 export function Panel({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn('rounded-2xl border border-line bg-surface', className)}>{children}</div>
+    <div
+      className={cn(
+        'rounded-[var(--radius-lg)] border border-line bg-surface shadow-[var(--shadow-xs)]',
+        className,
+      )}
+    >
+      {children}
+    </div>
   );
 }

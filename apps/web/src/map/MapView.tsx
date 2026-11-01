@@ -3,6 +3,9 @@ import { MapPinOff } from 'lucide-react';
 import { ADDIS_CENTER, type LatLng } from '@dp/shared';
 import { cn, Spinner } from '../ui/index.ts';
 import { loadYmaps, type YCoords, type YGeoObject, type YMap, type Ymaps21 } from './yandex.ts';
+import { fetchRouteGeometry } from './route.ts';
+import { buildVehiclePlacemarkHtml } from './vehicle3d.ts';
+import { animateMarker, headingBetween, stopAnimation } from './animate.ts';
 
 export interface MapMarker {
   id: string;
@@ -23,31 +26,11 @@ const MARKER_HTML: Record<MapMarker['kind'], string> = {
     '<div style="position:absolute;left:-15px;top:-15px;width:30px;height:30px;border-radius:999px;background:var(--c-accent);border:3px solid var(--c-surface);box-sizing:border-box;box-shadow:0 2px 8px rgba(0,0,0,.35)"></div>',
 };
 
-const RIDER_MOTORCYCLE_HTML =
-  '<div style="position:absolute;left:-22px;top:-44px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.4))">' +
-  '<svg width="44" height="52" viewBox="0 0 44 52">' +
-  '<ellipse cx="22" cy="49" rx="12" ry="3" fill="rgba(0,0,0,.25)"/>' +
-  '<path d="M6 28c0-10 7-22 16-26 9 4 16 16 16 26 0 6-3 10-8 12l-1-5a7 7 0 0 0-14 0l-1 5c-5-2-8-6-8-12z" fill="#0e6b4a"/>' +
-  '<path d="M14 28c0-5 3.5-9 8-9s8 4 8 9-3.5 9-8 9-8-4-8-9z" fill="#fff"/>' +
-  '<path d="M18 25l4 2v5l-2 1-2-1z" fill="#15171a" stroke="#15171a" stroke-width=".5" stroke-linejoin="round"/>' +
-  '<circle cx="22" cy="24" r="2" fill="#15171a"/>' +
-  '<path d="M16 15c2-3 5-5 6-5s4 2 6 5" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round"/>' +
-  '</svg></div>';
 
-const RIDER_BICYCLE_HTML =
-  '<div style="position:absolute;left:-22px;top:-44px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.4))">' +
-  '<svg width="44" height="52" viewBox="0 0 44 52">' +
-  '<ellipse cx="22" cy="49" rx="12" ry="3" fill="rgba(0,0,0,.25)"/>' +
-  '<path d="M6 28c0-10 7-22 16-26 9 4 16 16 16 26 0 6-3 10-8 12l-1-5a7 7 0 0 0-14 0l-1 5c-5-2-8-6-8-12z" fill="#2563eb"/>' +
-  '<path d="M14 28c0-5 3.5-9 8-9s8 4 8 9-3.5 9-8 9-8-4-8-9z" fill="#fff"/>' +
-  '<circle cx="18" cy="30" r="3.5" stroke="#15171a" stroke-width="1.2" fill="none"/>' +
-  '<circle cx="26" cy="30" r="3.5" stroke="#15171a" stroke-width="1.2" fill="none"/>' +
-  '<path d="M18 30l4-6h4l-4 6" stroke="#15171a" stroke-width="1.2" fill="none" stroke-linejoin="round"/>' +
-  '<path d="M22 24l2-3" stroke="#15171a" stroke-width="1.2" stroke-linecap="round"/>' +
-  '</svg></div>';
-
-const riderHtml = (vehicleType?: 'motorcycle' | 'bicycle') =>
-  vehicleType === 'bicycle' ? RIDER_BICYCLE_HTML : vehicleType === 'motorcycle' ? RIDER_MOTORCYCLE_HTML : MARKER_HTML.rider;
+const riderHtml = (vehicleType?: 'motorcycle' | 'bicycle') => {
+  if (vehicleType) return buildVehiclePlacemarkHtml(vehicleType);
+  return MARKER_HTML.rider;
+};
 
 /**
  * Yandex map with our markers and a pickup→drop-off line. Falls back to a neutral panel when the
@@ -76,6 +59,8 @@ export function MapView({
   const container = useRef<HTMLDivElement>(null);
   const api = useRef<{ ymaps: Ymaps21; map: YMap } | null>(null);
   const overlays = useRef<YGeoObject[]>([]);
+  const riderPlacemarks = useRef<Map<string, { obj: YGeoObject; coords: YCoords; kind: string }>>(new Map());
+  const routeCoords = useRef<YCoords[]>([]);
   const moveEnd = useRef(onMoveEnd);
   moveEnd.current = onMoveEnd;
   const [state, setState] = useState<'loading' | 'ready' | 'unavailable'>('loading');
@@ -125,36 +110,100 @@ export function MapView({
   useEffect(() => {
     const a = api.current;
     if (state !== 'ready' || !a) return;
+    let cancelled = false;
     for (const o of overlays.current) a.map.geoObjects.remove(o);
     overlays.current = [];
-    if (line) {
-      const polyline = new a.ymaps.Polyline(
-        line.map(toCoords),
-        {},
-        {
-          strokeColor: '#0e6b4a',
-          strokeWidth: 5,
-          strokeOpacity: 0.9,
-        },
-      );
+
+    const addRoute = (coords: YCoords[]) => {
+      if (cancelled) return;
+      const polyline = new a.ymaps.Polyline(coords, {}, {
+        strokeColor: '#0e6b4a',
+        strokeWidth: 5,
+        strokeOpacity: 0.9,
+      });
       a.map.geoObjects.add(polyline);
       overlays.current.push(polyline);
+    };
+
+    if (line) {
+      const from = toCoords(line[0]);
+      const to = toCoords(line[1]);
+      void fetchRouteGeometry(line[0], line[1]).then((coords) => {
+        if (cancelled) return;
+        if (coords) {
+          routeCoords.current = coords;
+          addRoute(coords);
+        } else {
+          routeCoords.current = [from, to];
+          addRoute([from, to]);
+        }
+      });
     }
+
+    const seenRiders = new Set<string>();
+
     for (const m of markers) {
-      const html = m.kind === 'rider' ? riderHtml(m.vehicleType) : MARKER_HTML[m.kind];
-      const isVehicleRider = m.kind === 'rider' && m.vehicleType;
-      const placemark = new a.ymaps.Placemark(
-        toCoords(m.point),
-        {},
-        {
-          iconLayout: a.ymaps.templateLayoutFactory.createClass(html),
-          iconShape: isVehicleRider
-            ? { type: 'Circle', coordinates: [0, -16], radius: 22 }
-            : { type: 'Circle', coordinates: [0, 0], radius: 16 },
-        },
-      );
-      a.map.geoObjects.add(placemark);
-      overlays.current.push(placemark);
+      if (m.kind === 'rider') {
+        seenRiders.add(m.id);
+        const newCoords = toCoords(m.point);
+        const existing = riderPlacemarks.current.get(m.id);
+
+        if (existing) {
+          // Animate to new position if it changed
+          const moved = existing.coords[0] !== newCoords[0] || existing.coords[1] !== newCoords[1];
+          if (moved) {
+            const heading = headingBetween(existing.coords, newCoords);
+            // Re-render the 3D icon with updated heading
+            if (m.vehicleType) {
+              const newHtml = buildVehiclePlacemarkHtml(m.vehicleType, heading);
+              const newLayout = a.ymaps.templateLayoutFactory.createClass(newHtml);
+              existing.obj.options?.set('iconLayout', newLayout);
+            }
+            animateMarker(m.id, existing.obj, existing.coords, newCoords, 1000);
+            existing.coords = newCoords;
+          }
+        } else {
+          const html = riderHtml(m.vehicleType);
+          const isVehicleRider = !!m.vehicleType;
+          const placemark = new a.ymaps.Placemark(
+            newCoords,
+            {},
+            {
+              iconLayout: a.ymaps.templateLayoutFactory.createClass(html),
+              iconShape: isVehicleRider
+                ? { type: 'Circle', coordinates: [0, 0], radius: 48 }
+                : { type: 'Circle', coordinates: [0, 0], radius: 16 },
+            },
+          );
+          a.map.geoObjects.add(placemark);
+          riderPlacemarks.current.set(m.id, {
+            obj: placemark,
+            coords: newCoords,
+            kind: m.vehicleType ?? 'rider',
+          });
+        }
+      } else {
+        const html = MARKER_HTML[m.kind];
+        const placemark = new a.ymaps.Placemark(
+          toCoords(m.point),
+          {},
+          {
+            iconLayout: a.ymaps.templateLayoutFactory.createClass(html),
+            iconShape: { type: 'Circle', coordinates: [0, 0], radius: 16 },
+          },
+        );
+        a.map.geoObjects.add(placemark);
+        overlays.current.push(placemark);
+      }
+    }
+
+    // Remove stale rider placemarks
+    for (const [id, entry] of riderPlacemarks.current) {
+      if (!seenRiders.has(id)) {
+        stopAnimation(id);
+        a.map.geoObjects.remove(entry.obj);
+        riderPlacemarks.current.delete(id);
+      }
     }
     if (fit && markers.length > 1) {
       const lats = markers.map((m) => m.point.lat);
@@ -167,6 +216,15 @@ export function MapView({
         { checkZoomRange: true, zoomMargin: 48, duration: 250 },
       );
     }
+    return () => {
+      cancelled = true;
+      // Clean up rider placemarks and animations
+      for (const [id, entry] of riderPlacemarks.current) {
+        stopAnimation(id);
+        a.map.geoObjects.remove(entry.obj);
+      }
+      riderPlacemarks.current.clear();
+    };
     // overlayKey captures markers/line by value.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, overlayKey, fit]);

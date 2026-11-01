@@ -9,6 +9,7 @@ import { SmsSendError, type SmsProvider } from '../../integrations/sms/index.ts'
 import { addSeconds, type Clock } from '../../shared/clock.ts';
 import { AppError, isUniqueViolation, tooManyRequests } from '../../shared/errors.ts';
 import { activeLockout, consume, consumeAll, lockOut } from '../../shared/rate-limit.ts';
+import { DEMO_OTP, isDemoPhone } from '../../demo/accounts.ts';
 import { generateOtpCode, hashOtpCode, verifyOtpCode } from './crypto.ts';
 import type { SessionService, UserRow } from './sessions.ts';
 
@@ -79,36 +80,40 @@ export class OtpService {
       return this.describe(challenge, now);
     }
 
-    // We are about to spend an SMS: apply limits.
-    const blocked = await consumeAll(
-      db,
-      [
-        { key: `otp:phone15m:${phone}`, windowSec: 900, limit: config.OTP_PHONE_SENDS_PER_15MIN },
-        { key: `otp:phone1d:${phone}`, windowSec: 86_400, limit: config.OTP_PHONE_SENDS_PER_DAY },
-        { key: `otp:ip1h:${ctx.ip}`, windowSec: 3600, limit: config.OTP_IP_SENDS_PER_HOUR },
-      ],
-      now,
-    );
-    if (blocked) throw tooManyRequests(blocked.retryAfterSec);
+    const demoBypass = config.DEMO_MODE && isDemoPhone(phone);
 
-    const budget = await consume(
-      db,
-      { key: 'otp:global1d', windowSec: 86_400, limit: config.SMS_DAILY_BUDGET },
-      now,
-    );
-    if (!budget.allowed) {
-      this.d.log.warn({ count: budget.count }, 'daily SMS budget exhausted; OTP not sent');
-      throw new AppError(
-        503,
-        'SMS_UNAVAILABLE',
-        "We can't send codes right now. Please try again later.",
-        {
-          details: { retryAfterSec: budget.retryAfterSec },
-        },
+    // We are about to spend an SMS: apply limits (demo accounts skip this).
+    if (!demoBypass) {
+      const blocked = await consumeAll(
+        db,
+        [
+          { key: `otp:phone15m:${phone}`, windowSec: 900, limit: config.OTP_PHONE_SENDS_PER_15MIN },
+          { key: `otp:phone1d:${phone}`, windowSec: 86_400, limit: config.OTP_PHONE_SENDS_PER_DAY },
+          { key: `otp:ip1h:${ctx.ip}`, windowSec: 3600, limit: config.OTP_IP_SENDS_PER_HOUR },
+        ],
+        now,
       );
+      if (blocked) throw tooManyRequests(blocked.retryAfterSec);
+
+      const budget = await consume(
+        db,
+        { key: 'otp:global1d', windowSec: 86_400, limit: config.SMS_DAILY_BUDGET },
+        now,
+      );
+      if (!budget.allowed) {
+        this.d.log.warn({ count: budget.count }, 'daily SMS budget exhausted; OTP not sent');
+        throw new AppError(
+          503,
+          'SMS_UNAVAILABLE',
+          "We can't send codes right now. Please try again later.",
+          {
+            details: { retryAfterSec: budget.retryAfterSec },
+          },
+        );
+      }
     }
 
-    const code = generateOtpCode();
+    const code = demoBypass ? DEMO_OTP[phone]! : generateOtpCode();
     const expiresAt = addSeconds(now, config.OTP_TTL_SEC);
 
     if (challenge) {
@@ -158,7 +163,7 @@ export class OtpService {
       }
     }
 
-    await this.sendCode(challenge, code);
+    if (!demoBypass) await this.sendCode(challenge, code);
     return this.describe(challenge, now);
   }
 

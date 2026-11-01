@@ -29,10 +29,10 @@ export function DeliveryCard({ d }: { d: DeliverySummary }) {
   return (
     <Link
       to={`/deliveries/${d.id}`}
-      className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 hover:bg-surface-2"
+      className="flex items-center gap-3 rounded-[var(--radius-lg)] border border-line bg-surface p-4 shadow-[var(--shadow-xs)] transition-all duration-[var(--dur-fast)] ease-[var(--ease-out)] hover:bg-surface-2 hover:shadow-[var(--shadow-sm)]"
     >
       <div className="min-w-0 flex-1">
-        <div className="mb-1.5 flex items-center gap-2">
+        <div className="mb-2 flex items-center gap-2">
           <Badge tone={STATUS_TONE[d.status]} dot>
             {t(`delivery.statuses.${d.status}`)}
           </Badge>
@@ -40,10 +40,10 @@ export function DeliveryCard({ d }: { d: DeliverySummary }) {
             #{d.code} · {date}
           </span>
         </div>
-        <p className="truncate text-[15px] font-semibold">
+        <p className="truncate text-[15px] font-semibold leading-snug">
           {d.pickup.address} → {d.dropoff.address}
         </p>
-        <p className="text-sm text-ink-3 tabular">
+        <p className="mt-0.5 text-sm text-ink-3 tabular">
           {d.fare} ETB · {t(`booking.vehicles.${d.vehicleType}`)}
         </p>
       </div>
@@ -59,7 +59,7 @@ export function DeliveryList() {
 
   return (
     <div className="flex flex-col gap-3 p-4">
-      <h1 className="pt-2 text-2xl font-bold tracking-tight">{t('delivery.list')}</h1>
+      <h1 className="pt-3 text-[26px] font-bold tracking-tight">{t('delivery.list')}</h1>
       {list.isPending && [0, 1, 2].map((i) => <Skeleton key={i} className="h-24 w-full" />)}
       {list.isError && (
         <ErrorState
