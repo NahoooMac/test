@@ -29,6 +29,8 @@ export type GpsState = 'off' | 'waiting' | 'ok' | 'blocked' | 'unsupported';
 export function useLocationSharing(active: boolean) {
   const [state, setState] = useState<GpsState>('off');
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null);
+  // Direction of travel in radians (0 = north), when the device reports it (only while moving).
+  const [heading, setHeading] = useState<number | undefined>(undefined);
   const lastSent = useRef(0);
 
   useEffect(() => {
@@ -45,6 +47,8 @@ export function useLocationSharing(active: boolean) {
       (pos) => {
         const p = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setPosition(p);
+        const deg = pos.coords.heading;
+        if (deg != null && !Number.isNaN(deg)) setHeading((deg * Math.PI) / 180);
         setState('ok');
         const now = Date.now();
         if (now - lastSent.current >= 10_000) {
@@ -63,7 +67,7 @@ export function useLocationSharing(active: boolean) {
     return () => navigator.geolocation.clearWatch(id);
   }, [active]);
 
-  return { state, position };
+  return { state, position, heading };
 }
 
 /**

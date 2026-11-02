@@ -26,7 +26,7 @@ import {
 } from '../../ui/index.ts';
 
 export default function CustomerApp() {
-  useTheme('light');
+  useTheme();
   return (
     <Routes>
       <Route path="sign-in" element={<CustomerSignIn />} />
@@ -78,10 +78,11 @@ function CustomerSignIn() {
   );
 }
 
+// Light tints by day, deep blues at night (text uses theme colours, so it stays readable).
 const VEHICLE_CARDS: { type: VehicleType; bg: string }[] = [
-  { type: 'motorcycle', bg: 'from-[#dbeafe] to-[#bfdbfe]' },
-  { type: 'bicycle', bg: 'from-[#e0f2fe] to-[#bae6fd]' },
-  { type: 'scooter', bg: 'from-[#e0e7ff] to-[#c7d2fe]' },
+  { type: 'motorcycle', bg: 'from-[#dbeafe] to-[#bfdbfe] dark:from-[#172554] dark:to-[#1e3a8a]' },
+  { type: 'bicycle', bg: 'from-[#e0f2fe] to-[#bae6fd] dark:from-[#082f49] dark:to-[#0c4a6e]' },
+  { type: 'scooter', bg: 'from-[#e0e7ff] to-[#c7d2fe] dark:from-[#1e1b4b] dark:to-[#312e81]' },
 ];
 
 function initials(name: string | null | undefined) {

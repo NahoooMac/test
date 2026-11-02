@@ -95,6 +95,8 @@ export const en = {
     phone: 'Phone',
     name: 'Name',
     language: 'Language',
+    theme: 'Appearance',
+    themes: { system: 'Device', light: 'Light', dark: 'Dark' },
     sessionNote: "You'll stay signed in on this device until you sign out.",
     switch: {
       becomeRider: {
@@ -273,6 +275,9 @@ export const en = {
     goOffline: 'Go offline',
     waiting: 'Waiting for jobs nearby. Keep this screen open.',
     offlineBody: 'Go online to start receiving delivery jobs.',
+    finding: 'Looking for jobs near you…',
+    swipeOnline: 'Swipe to go online',
+    swipeOffline: 'Swipe to go offline',
     gps: {
       waiting: 'Waiting for GPS…',
       ok: 'Location shared',

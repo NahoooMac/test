@@ -121,6 +121,12 @@
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
+/* Night map: Yandex has no dark tiles in this API, so invert the base map (streets and labels
+   only; markers, route lines and controls live in other panes and keep their colours). */
+[data-theme='dark'] [class*='ground-pane'] {
+  filter: invert(0.92) hue-rotate(180deg) saturate(0.6) brightness(0.95);
+}
+
 @theme inline {
   --font-sans: 'Inter Variable', 'Noto Sans Ethiopic', ui-sans-serif, system-ui, sans-serif;
 

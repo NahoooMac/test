@@ -15,7 +15,7 @@ type Step =
   | { name: 'profile' };
 
 /**
- * Phone â†’ code â†’ (first time only) name. Each surface supplies its own layout and phone-step intro;
+ * Phone → code → (first time only) name. Each surface supplies its own layout and phone-step intro;
  * the flow supplies the headings for later steps so wording stays consistent.
  */
 export function SignInFlow({

@@ -3,13 +3,15 @@ import { Link } from 'react-router';
 import { Bike, ChevronRight, LogOut, Package, UserRound } from 'lucide-react';
 import { formatPhone } from '@dp/shared';
 import { useSession, useSignOut } from '../../lib/session.tsx';
-import { Button, Notice, Panel } from '../../ui/index.ts';
+import { useThemePreference } from '../../lib/theme.ts';
+import { Button, Notice, Panel, Segmented } from '../../ui/index.ts';
 import { LanguageToggle } from './LanguageToggle.tsx';
 
 export function AccountPanel({ signInPath }: { signInPath: string }) {
   const { t } = useTranslation();
   const { data: user } = useSession();
   const signOut = useSignOut(signInPath);
+  const [theme, setTheme] = useThemePreference();
   if (!user) return null;
   const initials = (user.fullName ?? '')
     .split(/\s+/)
@@ -39,6 +41,21 @@ export function AccountPanel({ signInPath }: { signInPath: string }) {
             <dt className="text-sm text-ink-3">{t('account.language')}</dt>
             <dd>
               <LanguageToggle />
+            </dd>
+          </div>
+          <div className="flex flex-col gap-2 px-4 py-3">
+            <dt className="text-sm text-ink-3">{t('account.theme')}</dt>
+            <dd>
+              <Segmented
+                label={t('account.theme')}
+                value={theme}
+                onChange={setTheme}
+                options={[
+                  { value: 'system', label: t('account.themes.system') },
+                  { value: 'light', label: t('account.themes.light') },
+                  { value: 'dark', label: t('account.themes.dark') },
+                ]}
+              />
             </dd>
           </div>
         </dl>

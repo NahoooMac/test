@@ -4,7 +4,6 @@ import { ADDIS_CENTER, type LatLng } from '@dp/shared';
 import { cn, Spinner } from '../ui/index.ts';
 import { loadYmaps, ymapsFailure, type YCoords, type YGeoObject, type YMap, type Ymaps21 } from './yandex.ts';
 import { fetchRouteGeometry } from './route.ts';
-import { buildVehiclePlacemarkHtml } from './vehicle3d.ts';
 import { animateMarker, headingBetween, stopAnimation } from './animate.ts';
 
 export interface MapMarker {
@@ -12,6 +11,8 @@ export interface MapMarker {
   point: LatLng;
   kind: 'pickup' | 'dropoff' | 'rider';
   vehicleType?: 'motorcycle' | 'bicycle' | 'scooter';
+  /** Rider direction in radians (0 = north, clockwise), e.g. from GPS. */
+  heading?: number;
 }
 
 const toCoords = (p: LatLng): YCoords => [p.lat, p.lng];
@@ -41,13 +42,18 @@ const labeledMarkerHtml = (kind: 'pickup' | 'dropoff', label: string): string =>
 };
 
 
-const riderHtml = (vehicleType?: 'motorcycle' | 'bicycle' | 'scooter') => {
-  if (vehicleType) return buildVehiclePlacemarkHtml(vehicleType);
-  return MARKER_HTML.rider;
-};
+/**
+ * Rider marker: a navigation arrow (like turn-by-turn apps) that points along `heading` (radians,
+ * 0 = north, clockwise). Plain SVG, so maps never pull in a 3D library.
+ */
+const riderHtml = (heading = 0) =>
+  `<div style="position:absolute;left:-19px;top:-19px;width:38px;height:38px;` +
+  `transform:rotate(${(heading * 180) / Math.PI}deg);filter:drop-shadow(0 2px 4px rgba(15,23,42,.35))">` +
+  `<svg width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="17" fill="var(--c-accent)" opacity=".16"/>` +
+  `<path d="M19 6l10 24-10-6-10 6z" fill="var(--c-accent)" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/></svg></div>`;
 
 /**
- * Yandex map with our markers and a pickupâ†’drop-off line. Falls back to a neutral panel when the
+ * Yandex map with our markers and a pickup→drop-off line. Falls back to a neutral panel when the
  * map cannot load, so booking still works through address search.
  */
 export function MapView({
@@ -79,7 +85,7 @@ export function MapView({
   interactive?: boolean;
   /** Mouse-wheel zoom. Off by default so a map inside a scrolling page does not trap the wheel. */
   scrollZoom?: boolean;
-  /** + / âˆ’ buttons. */
+  /** + / − buttons. */
   zoomControls?: boolean;
   /** Change it to recentre on `center` even when `center` itself has not changed. */
   recenterKey?: number | string;
@@ -202,27 +208,20 @@ export function MapView({
           // Animate to new position if it changed
           const moved = existing.coords[0] !== newCoords[0] || existing.coords[1] !== newCoords[1];
           if (moved) {
-            const heading = headingBetween(existing.coords, newCoords);
-            // Re-render the 3D icon with updated heading
-            if (m.vehicleType) {
-              const newHtml = buildVehiclePlacemarkHtml(m.vehicleType, heading);
-              const newLayout = a.ymaps.templateLayoutFactory.createClass(newHtml);
-              existing.obj.options?.set('iconLayout', newLayout);
-            }
+            // Point the arrow the way the rider just moved.
+            const heading = m.heading ?? headingBetween(existing.coords, newCoords);
+            const newLayout = a.ymaps.templateLayoutFactory.createClass(riderHtml(heading));
+            existing.obj.options?.set('iconLayout', newLayout);
             animateMarker(m.id, existing.obj, existing.coords, newCoords, 1000);
             existing.coords = newCoords;
           }
         } else {
-          const html = riderHtml(m.vehicleType);
-          const isVehicleRider = !!m.vehicleType;
           const placemark = new a.ymaps.Placemark(
             newCoords,
             {},
             {
-              iconLayout: a.ymaps.templateLayoutFactory.createClass(html),
-              iconShape: isVehicleRider
-                ? { type: 'Circle', coordinates: [0, 0], radius: 48 }
-                : { type: 'Circle', coordinates: [0, 0], radius: 16 },
+              iconLayout: a.ymaps.templateLayoutFactory.createClass(riderHtml(m.heading ?? 0)),
+              iconShape: { type: 'Circle', coordinates: [0, 0], radius: 19 },
             },
           );
           a.map.geoObjects.add(placemark);
@@ -342,7 +341,7 @@ export function MapView({
           >
             <MapPinOff className="size-6" aria-hidden />
             <span className="rounded-full bg-surface px-3 py-1">
-              Map unavailable â€” address search still works
+              Map unavailable — address search still works
             </span>
             {import.meta.env.DEV && failure && (
               <span className="max-w-xs font-mono text-xs break-words text-danger">{failure}</span>

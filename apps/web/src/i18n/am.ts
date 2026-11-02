@@ -96,6 +96,8 @@ export const am: Messages = {
     phone: 'ስልክ',
     name: 'ስም',
     language: 'ቋንቋ',
+    theme: 'ገጽታ',
+    themes: { system: 'እንደ ስልኩ', light: 'ብርሃን', dark: 'ጨለማ' },
     sessionNote: 'እስኪወጡ ድረስ በዚህ መሳሪያ ላይ እንደገቡ ይቆያሉ።',
     switch: {
       becomeRider: {
@@ -271,6 +273,9 @@ export const am: Messages = {
     goOffline: 'ከመስመር ውጣ',
     waiting: 'በአቅራቢያ ስራ በመጠበቅ ላይ። ይህን ገጽ ክፍት ያድርጉ።',
     offlineBody: 'የማድረስ ስራዎችን ለመቀበል መስመር ላይ ይግቡ።',
+    finding: 'በአቅራቢያዎ ስራ እየፈለግን ነው…',
+    swipeOnline: 'መስመር ላይ ለመግባት ያንሸራትቱ',
+    swipeOffline: 'ከመስመር ለመውጣት ያንሸራትቱ',
     gps: {
       waiting: 'GPS በመጠበቅ ላይ…',
       ok: 'ቦታዎ እየተጋራ ነው',

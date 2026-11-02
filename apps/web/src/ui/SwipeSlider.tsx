@@ -8,6 +8,8 @@ export interface SwipeSliderProps {
   loading?: boolean;
   disabled?: boolean;
   icon?: ReactNode;
+  /** accent: blue track (go online, confirm); quiet: light track (go offline). */
+  tone?: 'accent' | 'quiet';
   className?: string;
 }
 
@@ -20,12 +22,15 @@ export function SwipeSlider({
   loading,
   disabled,
   icon,
+  tone = 'accent',
   className,
 }: SwipeSliderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [offset, setOffset] = useState(0);
   const [confirmed, setConfirmed] = useState(false);
   const dragging = useRef(false);
+  // The latest drag distance, readable at release even if React hasn't re-rendered yet (fast flicks).
+  const offsetRef = useRef(0);
   const startX = useRef(0);
   const maxTravel = useRef(0);
 
@@ -49,6 +54,7 @@ export function SwipeSlider({
   const onPointerDown = (e: React.PointerEvent) => {
     if (disabled || loading || confirmed) return;
     dragging.current = true;
+    offsetRef.current = 0;
     startX.current = e.clientX;
     maxTravel.current = computeMax();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -57,13 +63,17 @@ export function SwipeSlider({
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragging.current) return;
     const dx = e.clientX - startX.current;
-    setOffset(Math.max(0, Math.min(dx, maxTravel.current)));
+    offsetRef.current = Math.max(0, Math.min(dx, maxTravel.current));
+    setOffset(offsetRef.current);
   };
 
-  const onPointerUp = () => {
+  const onPointerUp = (e: React.PointerEvent) => {
     if (!dragging.current) return;
     dragging.current = false;
-    if (maxTravel.current > 0 && offset / maxTravel.current >= THRESHOLD) {
+    // Count the release position too: a quick flick may have no move event at its end.
+    const travel = Math.max(offsetRef.current, Math.min(e.clientX - startX.current, maxTravel.current));
+    offsetRef.current = 0;
+    if (maxTravel.current > 0 && travel / maxTravel.current >= THRESHOLD) {
       setConfirmed(true);
       setOffset(maxTravel.current);
       onConfirm();
@@ -79,7 +89,7 @@ export function SwipeSlider({
       ref={trackRef}
       className={cn(
         'relative flex h-16 select-none items-center overflow-hidden rounded-[var(--radius-lg)]',
-        'bg-accent shadow-[var(--shadow-md)]',
+        tone === 'accent' ? 'bg-accent shadow-[var(--shadow-md)]' : 'bg-surface-2 ring-1 ring-line',
         disabled && 'opacity-50',
         className,
       )}
@@ -99,7 +109,10 @@ export function SwipeSlider({
 
       {/* Label */}
       <span
-        className="pointer-events-none absolute inset-0 flex items-center justify-center text-[15px] font-semibold text-accent-ink transition-opacity duration-200"
+        className={cn(
+          'pointer-events-none absolute inset-0 flex items-center justify-center pl-12 text-[15px] font-semibold transition-opacity duration-200',
+          tone === 'accent' ? 'text-accent-ink' : 'text-ink',
+        )}
         style={{ opacity: 1 - progress * 1.5 }}
       >
         {label}
@@ -107,7 +120,10 @@ export function SwipeSlider({
 
       {/* Filled track */}
       <div
-        className="absolute top-1 bottom-1 left-1 rounded-[calc(var(--radius-lg)-2px)] bg-white/15 transition-[width] duration-75"
+        className={cn(
+          'absolute top-1 bottom-1 left-1 rounded-[calc(var(--radius-lg)-2px)] transition-[width] duration-75',
+          tone === 'accent' ? 'bg-white/15' : 'bg-danger/15',
+        )}
         style={{ width: offset + THUMB }}
       />
 
@@ -118,7 +134,8 @@ export function SwipeSlider({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         className={cn(
-          'absolute top-1 left-1 z-10 flex items-center justify-center rounded-[calc(var(--radius-lg)-2px)] bg-white text-accent shadow-[var(--shadow-sm)]',
+          'absolute top-1 left-1 z-10 flex items-center justify-center rounded-[calc(var(--radius-lg)-2px)] shadow-[var(--shadow-sm)]',
+          tone === 'accent' ? 'bg-white text-accent' : 'bg-navy text-white',
           'touch-none cursor-grab active:cursor-grabbing',
           !dragging.current && !confirmed && 'transition-transform duration-300 ease-[var(--ease-out)]',
         )}

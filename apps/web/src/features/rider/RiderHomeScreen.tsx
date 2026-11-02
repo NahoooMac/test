@@ -2,16 +2,8 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import {
-  Clock,
-  History,
-  MapPinOff,
-  Radio,
-  TrendingUp,
-  UserRound,
-  Wallet,
-} from 'lucide-react';
-import type { RiderProfile } from '@dp/shared';
+import { Clock, LocateFixed, MapPinOff, Radio, TrendingUp, Wallet } from 'lucide-react';
+import { ADDIS_CENTER, type RiderProfile } from '@dp/shared';
 import { api } from '../../lib/api.ts';
 import {
   Button,
@@ -19,14 +11,15 @@ import {
   ErrorState,
   Notice,
   Panel,
-  PlateBadge,
   Segmented,
   Skeleton,
+  SwipeSlider,
   cn,
 } from '../../ui/index.ts';
-import { VehicleHero } from '../../map/VehicleHero.tsx';
+import { MapView } from '../../map/MapView.tsx';
 import { ActiveJob } from './ActiveJob.tsx';
 import { ApplyForm } from './ApplyForm.tsx';
+import { FindingRadar } from './FindingRadar.tsx';
 import { OfferCard } from './OfferCard.tsx';
 import {
   riderHomeKey,
@@ -129,6 +122,7 @@ export function RiderHomeScreen() {
   const onJob = !!home.data?.job;
   const gps = useLocationSharing(online || onJob);
   useWakeLock(online || onJob);
+  const [recenter, setRecenter] = useState(0);
 
   const toggle = useMutation({
     mutationFn: (next: boolean) =>
@@ -174,121 +168,125 @@ export function RiderHomeScreen() {
 
   if (home.data.job) return <ActiveJob job={home.data.job} position={gps.position} />;
 
-  const initials = (profile.fullName ?? '')
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]!.toUpperCase())
-    .join('');
+  const here = gps.position;
 
   return (
-    <div className="flex flex-col gap-5 px-4 pt-5 pb-6">
+    // Exactly one screen above the tab bar: the map takes what the sheet leaves (about half), so the
+    // swipe control is never pushed under the tab bar.
+    <div className="relative flex h-[calc(100dvh-5.5rem-env(safe-area-inset-bottom))] min-h-[560px] flex-col">
       {home.data.offer && <OfferCard offer={home.data.offer} />}
 
-      <header className="flex items-center gap-3">
-        <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-2 to-accent text-[15px] font-bold text-white shadow-[var(--shadow-md)] ring-2 ring-surface">
-          {initials || <UserRound className="size-5" aria-hidden />}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[17px] font-bold">{profile.fullName}</p>
-          <p className="flex items-center gap-1.5 text-sm text-ink-3">
-            <span
-              className={cn('size-2 rounded-full', online ? 'bg-success' : 'bg-line-strong')}
-              aria-hidden
-            />
+      {/* Map: the top part of the screen, following the rider. */}
+      <div className="relative min-h-[200px] flex-1">
+        <MapView
+          className="absolute inset-0"
+          center={here ?? ADDIS_CENTER}
+          zoom={here ? 16 : 13}
+          recenterKey={recenter}
+          markers={here ? [{ id: 'me', point: here, kind: 'rider', heading: gps.heading }] : []}
+          zoomControls={false}
+          scrollZoom
+        />
+        {online && <FindingRadar />}
+
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-4">
+          <span
+            className={cn(
+              'flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold shadow-[var(--shadow-md)]',
+              online ? 'bg-navy text-navy-ink' : 'bg-surface text-ink',
+            )}
+          >
+            <span className="relative flex size-2.5">
+              {online && (
+                <span className="absolute inset-0 animate-ping rounded-full bg-success/70" aria-hidden />
+              )}
+              <span
+                className={cn('relative size-2.5 rounded-full', online ? 'bg-success' : 'bg-line-strong')}
+              />
+            </span>
             {online ? t('rider.onlineShort') : t('rider.offlineShort')}
-          </p>
-        </div>
-        {profile.plateNumber && <PlateBadge>{profile.plateNumber}</PlateBadge>}
-      </header>
-
-      <EarningsCard />
-
-      <button
-        type="button"
-        role="switch"
-        aria-checked={online}
-        disabled={toggle.isPending}
-        onClick={() => toggle.mutate(!online)}
-        className={cn(
-          'flex h-16 items-center gap-3 rounded-[var(--radius-xl)] px-5 text-left text-base font-bold',
-          'transition-all duration-[var(--dur-normal)] ease-[var(--ease-out)] active:scale-[0.98] disabled:opacity-60',
-          online
-            ? 'bg-surface text-ink shadow-[var(--shadow-sm)] ring-1 ring-line'
-            : 'bg-accent text-white shadow-[0_10px_24px_-8px_rgba(37,99,235,0.7)]',
-        )}
-      >
-        <span className="relative flex size-3">
-          {!online && <span className="absolute inset-0 animate-ping rounded-full bg-success/70" aria-hidden />}
-          <span className={cn('relative size-3 rounded-full', online ? 'bg-danger' : 'bg-success ring-2 ring-white/60')} />
-        </span>
-        <span className="flex-1">{online ? t('rider.goOffline') : t('rider.goOnline')}</span>
-        <span
-          aria-hidden
-          className={cn(
-            'flex h-8 w-14 items-center rounded-full p-1 transition-all duration-[var(--dur-normal)]',
-            online ? 'justify-end bg-success' : 'justify-start bg-white/25',
-          )}
-        >
-          <span className="size-6 rounded-full bg-white shadow-[var(--shadow-sm)]" />
-        </span>
-      </button>
-      {toggle.isError && <Notice tone="danger">{toggle.error.message}</Notice>}
-
-      {online ? (
-        <>
-          <GpsStatus state={gps.state} />
-          <Panel className="relative flex items-center gap-4 overflow-hidden p-4">
-            <div className="relative shrink-0">
-              <span className="absolute inset-0 animate-ping rounded-full bg-accent/25" aria-hidden />
-              <span className="relative flex size-12 items-center justify-center rounded-full bg-accent-soft">
-                <Radio className="size-6 text-accent" aria-hidden />
-              </span>
-            </div>
-            <p className="min-w-0 flex-1 text-[15px] font-semibold">{t('rider.waiting')}</p>
-            <VehicleHero kind={profile.vehicleType} rider={false} width={140} height={100} className="w-20 shrink-0" />
-          </Panel>
-        </>
-      ) : (
-        <Panel className="flex items-center gap-4 p-4">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-surface-2">
-            <Wallet className="size-6 text-ink-3" aria-hidden />
+            {profile.plateNumber && (
+              <span className="font-semibold opacity-60">· {profile.plateNumber}</span>
+            )}
           </span>
-          <p className="min-w-0 flex-1 text-sm text-ink-2">{t('rider.offlineBody')}</p>
-          <VehicleHero kind={profile.vehicleType} rider={false} width={140} height={100} className="w-20 shrink-0 opacity-80" />
-        </Panel>
-      )}
-
-      <section>
-        <h2 className="mb-3 text-lg font-bold tracking-tight">{t('rider.quickActions')}</h2>
-        <div className="grid grid-cols-3 gap-3">
-          <QuickAction to="/rider/earnings" icon={Wallet} label={t('nav.earnings')} />
-          <QuickAction to="/rider/earnings#history" icon={History} label={t('rider.historyShort')} />
-          <QuickAction to="/rider/account" icon={UserRound} label={t('rider.profile')} />
         </div>
-      </section>
+
+        <Link
+          to="/rider/earnings"
+          aria-label={t('nav.earnings')}
+          className="absolute bottom-10 left-4 flex size-14 items-center justify-center rounded-full bg-navy text-navy-ink shadow-[var(--shadow-lg)] active:scale-95"
+        >
+          <Wallet className="size-6" aria-hidden />
+        </Link>
+        <button
+          type="button"
+          onClick={() => setRecenter((n) => n + 1)}
+          aria-label={t('rider.nav.recenter')}
+          className="absolute right-4 bottom-10 flex size-14 items-center justify-center rounded-full bg-navy text-navy-ink shadow-[var(--shadow-lg)] active:scale-95"
+        >
+          <LocateFixed className="size-6" aria-hidden />
+        </button>
+      </div>
+
+      {/* Sheet: today's numbers, status, and the online switch. */}
+      <div className="relative z-10 -mt-6 flex shrink-0 flex-col gap-3 rounded-t-[28px] bg-canvas px-4 pt-3 pb-3 shadow-[0_-10px_28px_rgba(15,23,42,0.10)]">
+        <span className="mx-auto h-1.5 w-10 rounded-full bg-line-strong" aria-hidden />
+        <TodayStats />
+
+        {online && (
+          <Panel className="flex items-center gap-3 p-4">
+            <span className="relative flex size-11 shrink-0 items-center justify-center rounded-full bg-accent-soft">
+              <span className="absolute inset-0 animate-ping rounded-full bg-accent/20" aria-hidden />
+              <Radio className="relative size-5 text-accent" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] font-semibold">{t('rider.finding')}</p>
+              <GpsStatus state={gps.state} />
+            </div>
+          </Panel>
+        )}
+
+        <div className="flex flex-col gap-2 pt-1">
+          {toggle.isError && <Notice tone="danger">{toggle.error.message}</Notice>}
+          <SwipeSlider
+            key={online ? 'on' : 'off'}
+            label={online ? t('rider.swipeOffline') : t('rider.swipeOnline')}
+            tone={online ? 'quiet' : 'accent'}
+            loading={toggle.isPending}
+            onConfirm={() => toggle.mutate(!online)}
+          />
+          {!online && <p className="text-center text-xs text-ink-3">{t('rider.offlineBody')}</p>}
+        </div>
+      </div>
     </div>
   );
 }
 
-function QuickAction({
-  to,
-  icon: Icon,
-  label,
-}: {
-  to: string;
-  icon: typeof Wallet;
-  label: string;
-}) {
+/** Two numbers at a glance, like the top of a ride-hailing driver app. Tap for details. */
+function TodayStats() {
+  const { t } = useTranslation();
+  const { jobs, todayCount, todayTotal } = useRiderEarnings();
   return (
     <Link
-      to={to}
-      className="flex flex-col items-center gap-2 rounded-[var(--radius-lg)] bg-surface py-4 text-sm font-medium shadow-[var(--shadow-sm)] ring-1 ring-line/70 transition-all duration-[var(--dur-fast)] hover:shadow-[var(--shadow-md)] active:scale-[0.97]"
+      to="/rider/earnings"
+      className="grid grid-cols-2 divide-x divide-white/10 rounded-[var(--radius-xl)] bg-navy py-4 text-navy-ink shadow-[var(--shadow-md)]"
     >
-      <span className="flex size-10 items-center justify-center rounded-full bg-accent-soft text-accent">
-        <Icon className="size-5" aria-hidden />
+      <span className="flex items-center gap-3 px-4">
+        <TrendingUp className="size-7 shrink-0 text-accent-2" aria-hidden />
+        <span className="min-w-0">
+          <span className="block text-sm text-navy-ink/70">{t('rider.earnings.todayEarnings')}</span>
+          <span className="block text-xl font-bold tabular">
+            {jobs.isPending ? '—' : todayTotal} <span className="text-sm font-semibold">ETB</span>
+          </span>
+        </span>
       </span>
-      {label}
+      <span className="flex items-center gap-3 px-4">
+        <Wallet className="size-7 shrink-0 text-accent-2" aria-hidden />
+        <span className="min-w-0">
+          <span className="block text-sm text-navy-ink/70">{t('rider.earnings.deliveries')}</span>
+          <span className="block text-xl font-bold tabular">{jobs.isPending ? '—' : todayCount}</span>
+        </span>
+      </span>
     </Link>
   );
 }

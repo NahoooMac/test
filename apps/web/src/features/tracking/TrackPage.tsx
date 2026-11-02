@@ -15,7 +15,7 @@ import { Wordmark } from '../../surfaces/Wordmark.tsx';
 
 /** Public page for the receiver: no sign-in, live updates, no sender/receiver phone numbers. */
 export default function TrackPage() {
-  useTheme('light');
+  useTheme();
   const { t, i18n } = useTranslation();
   const { code = '' } = useParams();
   const queryClient = useQueryClient();

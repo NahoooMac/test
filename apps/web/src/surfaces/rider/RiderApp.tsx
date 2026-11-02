@@ -13,7 +13,7 @@ import { AuthScaffold } from '../../features/auth/AuthScaffold.tsx';
 import { Badge, BottomNav } from '../../ui/index.ts';
 
 export default function RiderApp() {
-  useTheme('light');
+  useTheme();
   // Unlock sound on the rider's first tap, so the job ringtone can play later.
   useEffect(() => armRingtone(), []);
   return (

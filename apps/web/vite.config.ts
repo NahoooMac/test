@@ -1,7 +1,8 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import basicSsl from '@vitejs/plugin-basic-ssl';
+import { BRAND_LOADER_CSS, brandLoaderSvg, splitName } from './src/ui/brandLoaderMarkup.ts';
 
 // Dev only: phones have no console, so print startup errors on the page instead of a blank screen.
 const phoneErrors: Plugin = {
@@ -26,7 +27,7 @@ const phoneErrors: Plugin = {
     if(document.hidden){document.addEventListener('visibilitychange',function v(){
       if(!document.hidden){document.removeEventListener('visibilitychange',v);setTimeout(check,3000);}});return;}
     var root=document.getElementById('root');
-    if(root&&!root.firstChild)show('App did not start.\\n'+navigator.userAgent);
+    if(root&&(!root.firstChild||root.querySelector('#splash')))show('App did not start.\\n'+navigator.userAgent);
   }
   setTimeout(check,10000);
 })();`,
@@ -34,9 +35,54 @@ const phoneErrors: Plugin = {
   ],
 };
 
+/**
+ * Puts the rider loading animation straight into index.html, inside #root: it shows the moment the
+ * HTML arrives (before any JS or CSS), and React replaces it on its first render. Also warms up the
+ * connection to the map servers, which every map screen needs.
+ */
+function splash(appName: string): Plugin {
+  const [a, b] = splitName(appName);
+  const markup =
+    `<div id="splash" class="bl-root" role="status" aria-label="Loading" ` +
+    `style="min-height:100dvh;justify-content:center;background:var(--c-surface,Canvas);` +
+    `font-family:'Inter Variable',system-ui,sans-serif">` +
+    brandLoaderSvg('bl-splash') +
+    `<p class="bl-text" style="font-size:26px;font-weight:700;letter-spacing:-.02em;margin:-1.5rem 0 0">` +
+    `<span style="color:var(--c-ink,CanvasText)">${a}</span>` +
+    `<span style="color:var(--c-accent,#2563eb)">${b}</span></p></div>`;
+  return {
+    name: 'splash',
+    transformIndexHtml: {
+      order: 'pre',
+      handler: (html) => ({
+        html: html.replace('<div id="root"></div>', `<div id="root">${markup}</div>`),
+        tags: [
+          { tag: 'style', children: BRAND_LOADER_CSS, injectTo: 'head' },
+          {
+            tag: 'link',
+            attrs: { rel: 'preconnect', href: 'https://api-maps.yandex.ru' },
+            injectTo: 'head',
+          },
+          {
+            tag: 'link',
+            attrs: { rel: 'dns-prefetch', href: 'https://router.project-osrm.org' },
+            injectTo: 'head',
+          },
+        ],
+      }),
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => ({
   // `lan-https` adds a self-signed certificate: phones only allow location on https pages.
-  plugins: [react(), tailwindcss(), phoneErrors, ...(mode === 'lan-https' ? [basicSsl()] : [])],
+  plugins: [
+    react(),
+    tailwindcss(),
+    phoneErrors,
+    splash(loadEnv(mode, process.cwd(), 'VITE_').VITE_APP_NAME || 'Courier'),
+    ...(mode === 'lan-https' ? [basicSsl()] : []),
+  ],
   server: {
     port: Number(process.env.PORT) || 5173,
     strictPort: true,
