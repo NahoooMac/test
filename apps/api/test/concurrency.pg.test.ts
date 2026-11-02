@@ -81,6 +81,7 @@ describe.skipIf(!URL)('real Postgres concurrency', () => {
       userId: r.id,
       vehicleType: 'bicycle',
       approvalStatus: 'approved',
+      kycStatus: 'approved',
       isOnline: true,
       currentLat: 9.0105,
       currentLng: 38.7614,

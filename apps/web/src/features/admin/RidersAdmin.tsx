@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router';
 import { formatPhone, type RiderApprovalStatus, type VehicleType } from '@dp/shared';
 import { api, ApiRequestError } from '../../lib/api.ts';
 import {
@@ -45,11 +46,12 @@ const TONE: Record<RiderApprovalStatus, Tone> = {
   rejected: 'neutral',
 };
 
+// "Approve" lives on the verification review (it needs approved KYC); see the link per row.
 const ACTIONS: Record<RiderApprovalStatus, Decision[]> = {
-  pending: ['approve', 'reject'],
+  pending: ['reject'],
   approved: ['suspend'],
   suspended: ['reinstate'],
-  rejected: ['approve'],
+  rejected: [],
 };
 
 const fmt = (iso: string) =>
@@ -218,6 +220,15 @@ export function RidersAdmin() {
             align: 'right',
             cell: (r) => (
               <div className="flex justify-end gap-2">
+                {/* Approval happens through the identity review, never directly. */}
+                {(r.approvalStatus === 'pending' || r.approvalStatus === 'rejected') && (
+                  <Link
+                    to={`/admin/verification/${r.userId}`}
+                    className="inline-flex h-9 items-center rounded-[var(--radius-md)] bg-accent px-3 text-sm font-semibold text-white"
+                  >
+                    Review identity
+                  </Link>
+                )}
                 {ACTIONS[r.approvalStatus].map((d) => (
                   <Button
                     key={d}

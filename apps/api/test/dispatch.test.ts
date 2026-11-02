@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { deliveries, deliveryOffers, riders, users } from '../src/db/schema.ts';
-import { createTestApp, ORIGIN, signIn, type TestApp } from './helpers.ts';
+import { createTestApp, ORIGIN, signIn, submitKyc, type TestApp } from './helpers.ts';
 
 let t: TestApp;
 let ipCounter = 0;
@@ -55,7 +55,7 @@ async function rider(
   const id = s.body.user.id as string;
   await t.database.db
     .update(riders)
-    .set({ approvalStatus: 'approved' })
+    .set({ approvalStatus: 'approved', kycStatus: 'approved' })
     .where(eq(riders.userId, id));
   if (opts.online !== false) {
     expect((await call('POST', '/api/rider/status', s.cookie, { online: true })).statusCode).toBe(
@@ -98,7 +98,7 @@ const openOffers = () =>
   t.database.db.select().from(deliveryOffers).where(eq(deliveryOffers.status, 'offered'));
 
 describe('rider onboarding', () => {
-  it('apply → pending → admin approves → can go online', async () => {
+  it('apply → pending → identity verified by admin → can go online', async () => {
     const s = await signIn(t, '0944000001', nextIp());
     const res = await call('POST', '/api/rider/apply', s.cookie, {
       fullName: 'Kebede Alemu',
@@ -122,9 +122,17 @@ describe('rider onboarding', () => {
       .where(eq(users.id, adminS.body.user.id));
     const pending = (await call('GET', '/api/admin/riders?status=pending', adminS.cookie)).json();
     expect(pending.map((r: { fullName: string }) => r.fullName)).toEqual(['Kebede Alemu']);
+    // Approving the account directly is refused until identity is verified.
+    const early = await call('POST', `/api/admin/riders/${s.body.user.id}/decision`, adminS.cookie, {
+      decision: 'approve',
+    });
+    expect(early.statusCode).toBe(409);
+    expect(early.json().error.code).toBe('KYC_REQUIRED');
+
+    await submitKyc(t, s.cookie);
     const decide = await call(
       'POST',
-      `/api/admin/riders/${s.body.user.id}/decision`,
+      `/api/admin/riders/${s.body.user.id}/kyc/decision`,
       adminS.cookie,
       { decision: 'approve' },
     );
@@ -153,7 +161,7 @@ describe('rider onboarding', () => {
       plateNumber: '3-A12345',
     });
     expect(res.statusCode).toBe(201);
-    await t.database.db.update(riders).set({ approvalStatus: 'approved' }).where(eq(riders.userId, c.id));
+    await t.database.db.update(riders).set({ approvalStatus: 'approved', kycStatus: 'approved' }).where(eq(riders.userId, c.id));
 
     // Customer side keeps working for the same session.
     expect((await call('GET', '/api/deliveries', c.cookie)).statusCode).toBe(200);

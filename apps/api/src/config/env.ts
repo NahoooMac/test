@@ -62,6 +62,18 @@ const envSchema = z
     SESSION_ABSOLUTE_DAYS: z.coerce.number().int().positive().default(90),
     ADMIN_SESSION_HOURS: z.coerce.number().int().positive().default(12),
 
+    // Rider KYC photos: AES-256 key (base64 of 32 random bytes), kept out of the database.
+    // Required in production; development derives one from OTP_HMAC_SECRET.
+    KYC_ENCRYPTION_KEY: z.preprocess(
+      emptyToUndefined,
+      z
+        .string()
+        .refine((v) => Buffer.from(v, 'base64').length === 32, 'must be base64 of 32 bytes')
+        .optional(),
+    ),
+    // Photos are deleted this many days after the admin's decision (they are not needed after).
+    KYC_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
+
     DEMO_MODE: z
       .enum(['true', 'false'])
       .default('false')
@@ -92,6 +104,13 @@ const envSchema = z
     }
     if (!env.DATABASE_URL) {
       ctx.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: 'required in production' });
+    }
+    if (!env.KYC_ENCRYPTION_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['KYC_ENCRYPTION_KEY'],
+        message: 'required in production (openssl rand -base64 32)',
+      });
     }
     if (env.SMS_PROVIDER === 'console') {
       ctx.addIssue({

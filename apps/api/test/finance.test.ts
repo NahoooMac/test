@@ -60,7 +60,7 @@ async function rider(opts: { vehicle?: 'motorcycle' | 'bicycle'; online?: boolea
   });
   await t.database.db
     .update(riders)
-    .set({ approvalStatus: 'approved' })
+    .set({ approvalStatus: 'approved', kycStatus: 'approved' })
     .where(eq(riders.userId, s.body.user.id));
   if (opts.online !== false) {
     await call('POST', '/api/rider/status', s.cookie, { online: true });

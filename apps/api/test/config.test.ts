@@ -29,6 +29,7 @@ describe('config', () => {
       AFROMESSAGE_TOKEN: 't',
       APP_ORIGIN: 'https://app.example',
       OTP_HMAC_SECRET: 'x'.repeat(40),
+      KYC_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
     };
     expect(trustProxySetting(loadConfig(prod))).toBe(1);
     expect(trustProxySetting(loadConfig({ ...prod, TRUST_PROXY: '2' }))).toBe(2);

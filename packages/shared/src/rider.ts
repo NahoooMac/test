@@ -7,6 +7,7 @@ import {
   RIDER_APPROVAL_STATUSES,
   VEHICLE_TYPES,
 } from './enums.ts';
+import { KYC_STATUSES } from './kyc.ts';
 
 const money = z.string().regex(/^-?\d+\.\d{2}$/);
 
@@ -51,6 +52,8 @@ export const riderProfileSchema = z.object({
   plateNumber: z.string().nullable(),
   approvalStatus: z.enum(RIDER_APPROVAL_STATUSES),
   rejectionReason: z.string().nullable(),
+  /** Identity verification; the rider can only be approved once this is approved. */
+  kycStatus: z.enum(KYC_STATUSES),
   isOnline: z.boolean(),
   locationUpdatedAt: z.string().nullable(),
   createdAt: z.string(),

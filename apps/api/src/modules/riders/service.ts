@@ -109,6 +109,7 @@ export class RiderService {
       plateNumber: row.r.plateNumber,
       approvalStatus: row.r.approvalStatus,
       rejectionReason: row.r.rejectionReason,
+      kycStatus: row.r.kycStatus,
       isOnline: row.r.isOnline,
       locationUpdatedAt: row.r.locationUpdatedAt?.toISOString() ?? null,
       createdAt: row.r.createdAt.toISOString(),

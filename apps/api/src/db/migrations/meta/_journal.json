@@ -57,6 +57,13 @@
       "when": 1793559267911,
       "tag": "0007_admin_recovery",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793627175717,
+      "tag": "0008_rider_kyc",
+      "breakpoints": true
     }
   ]
 }

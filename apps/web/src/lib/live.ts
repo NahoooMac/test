@@ -65,7 +65,11 @@ function handle(queryClient: QueryClient, type: string, data: Record<string, unk
       void queryClient.invalidateQueries({ queryKey: ['rider'] });
       break;
     case 'ops':
-      if (!data.hello) void queryClient.invalidateQueries({ queryKey: ['admin', 'ops'] });
+      if (!data.hello) {
+        void queryClient.invalidateQueries({ queryKey: ['admin', 'ops'] });
+        // Rider submissions and decisions: keep the verification queue current.
+        void queryClient.invalidateQueries({ queryKey: ['admin', 'kyc'] });
+      }
       break;
   }
 }

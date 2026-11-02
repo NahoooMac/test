@@ -6,6 +6,7 @@ import {
   Map,
   Package,
   Scale,
+  ScanFace,
   Settings,
   ShieldCheck,
   Users,
@@ -16,6 +17,7 @@ import { RequireRole, useSession, useSignOut } from '../../lib/session.tsx';
 import { useTheme } from '../../lib/theme.ts';
 import { AdminPasswordForm } from '../../features/auth/AdminPasswordForm.tsx';
 import { RidersAdmin } from '../../features/admin/RidersAdmin.tsx';
+import { KycAdmin } from '../../features/admin/KycAdmin.tsx';
 import { LiveOps } from '../../features/admin/LiveOps.tsx';
 import { DeliveriesAdmin } from '../../features/admin/DeliveriesAdmin.tsx';
 import { ReconciliationAdmin } from '../../features/admin/FinanceAdmin.tsx';
@@ -40,6 +42,8 @@ export default function AdminApp() {
       >
         <Route index element={<LiveOps />} />
         <Route path="riders" element={<RidersAdmin />} />
+        <Route path="verification" element={<KycAdmin />} />
+        <Route path="verification/:id" element={<KycAdmin />} />
         <Route path="deliveries" element={<DeliveriesAdmin />} />
         <Route path="deliveries/:id" element={<DeliveriesAdmin />} />
         <Route path="reconciliation" element={<ReconciliationAdmin />} />
@@ -107,6 +111,7 @@ function AdminShell() {
     { to: '/admin', label: t('nav.liveOps'), icon: Map, end: true },
     { to: '/admin/deliveries', label: t('nav.deliveries'), icon: Package, end: false },
     { to: '/admin/riders', label: t('nav.riders'), icon: UserCog, end: false },
+    { to: '/admin/verification', label: t('nav.verification'), icon: ScanFace, end: false },
     { to: '/admin/reconciliation', label: t('nav.reconciliation'), icon: Scale, end: false },
     { to: '/admin/pricing', label: t('nav.pricing'), icon: BadgeDollarSign, end: false },
     { to: '/admin/users', label: t('nav.users'), icon: Users, end: false },

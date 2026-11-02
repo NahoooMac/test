@@ -23,7 +23,7 @@ export async function createTestApp(
   const config = loadConfig({ NODE_ENV: 'test', APP_ORIGIN: ORIGIN, ...opts.env });
   const clock = opts.clock ?? new ManualClock();
   const sms = new FakeSmsProvider();
-  const { app, dispatcher } = await buildApp({
+  const { app, dispatcher, kyc } = await buildApp({
     config,
     database,
     clock,
@@ -49,6 +49,7 @@ export async function createTestApp(
   return {
     app,
     dispatcher,
+    kyc,
     database,
     clock,
     sms,
@@ -70,6 +71,35 @@ export function sessionCookie(res: LightMyRequestResponse): string {
   const c = res.cookies.find((x) => x.name === 'sid');
   if (!c) throw new Error('No session cookie set');
   return `sid=${c.value}`;
+}
+
+/**
+ * A minimal, well-formed JPEG header (APP0 + SOF0 with the given size) padded to `bytes`: enough for
+ * the server's checks, which read the frame size without decoding the picture.
+ */
+export function fakeJpeg(width = 1280, height = 960, bytes = 12_000): string {
+  const b = Buffer.alloc(bytes, 0x11);
+  b.set([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10], 0); // SOI + APP0 (16 bytes)
+  b.set([0xff, 0xc0, 0x00, 0x11, 0x08, height >> 8, height & 255, width >> 8, width & 255], 20);
+  b.set([0xff, 0xd9], bytes - 2); // EOI
+  return b.toString('base64');
+}
+
+/** Uploads every required KYC photo for the rider and submits the application. */
+export async function submitKyc(t: TestApp, cookie: string) {
+  const kyc = (await t.app.inject({ method: 'GET', url: '/api/rider/kyc', headers: { cookie } })).json();
+  for (const kind of kyc.required as string[]) {
+    const res = await t.app.inject({
+      method: 'PUT',
+      url: `/api/rider/kyc/documents/${kind}`,
+      headers: { cookie, origin: ORIGIN },
+      payload: { image: fakeJpeg() },
+    });
+    if (res.statusCode !== 200) throw new Error(`upload ${kind} failed: ${res.body}`);
+  }
+  const res = await t.post('/api/rider/kyc/submit', undefined, { cookie });
+  if (res.statusCode !== 200) throw new Error(`submit failed: ${res.body}`);
+  return res.json();
 }
 
 /** Full happy-path sign-in; returns the cookie header and the user. */

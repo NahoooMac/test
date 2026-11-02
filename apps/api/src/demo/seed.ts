@@ -26,6 +26,8 @@ export async function seedDemoAccounts(db: Db): Promise<void> {
       vehicleType: 'motorcycle',
       plateNumber: 'AA-12345',
       approvalStatus: 'approved',
+      // Demo data only (local database): marked verified so the demo runs without photos.
+      kycStatus: 'approved',
       isOnline: true,
       currentLat: 9.0127,
       currentLng: 38.7896,
@@ -37,6 +39,7 @@ export async function seedDemoAccounts(db: Db): Promise<void> {
       target: riders.userId,
       set: {
         approvalStatus: 'approved',
+        kycStatus: 'approved',
         isOnline: true,
         currentLat: 9.0127,
         currentLng: 38.7896,

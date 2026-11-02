@@ -230,6 +230,7 @@ describe('cancel', () => {
       vehicleType: 'motorcycle',
       plateNumber: '3-A12345',
       approvalStatus: 'approved',
+      kycStatus: 'approved',
     });
     return u!.id;
   }
@@ -287,7 +288,7 @@ describe('database rules', () => {
       .returning();
     await t.database.db
       .insert(riders)
-      .values({ userId: u!.id, vehicleType: 'bicycle', approvalStatus: 'approved' });
+      .values({ userId: u!.id, vehicleType: 'bicycle', approvalStatus: 'approved', kycStatus: 'approved' });
     const a = (await create(booking(), 'key-x-0001')).json();
     const b = (await create(booking(), 'key-y-0001')).json();
     await t.database.db

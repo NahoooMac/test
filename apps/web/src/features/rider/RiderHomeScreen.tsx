@@ -20,6 +20,7 @@ import { MapView } from '../../map/MapView.tsx';
 import { ActiveJob } from './ActiveJob.tsx';
 import { ApplyForm } from './ApplyForm.tsx';
 import { FindingRadar } from './FindingRadar.tsx';
+import { KycFlow } from './kyc/KycFlow.tsx';
 import { OfferCard } from './OfferCard.tsx';
 import {
   riderHomeKey,
@@ -150,6 +151,14 @@ export function RiderHomeScreen() {
   }
   if (!profile) return <ApplyForm />;
 
+  // A delivery already under way is always finished first.
+  if (home.data.job) return <ActiveJob job={home.data.job} position={gps.position} />;
+
+  // Identity verification comes before anything else (the server enforces it too).
+  if (profile.kycStatus !== 'approved' && profile.approvalStatus !== 'suspended') {
+    return <KycFlow />;
+  }
+
   if (profile.approvalStatus !== 'approved') {
     const key = profile.approvalStatus === 'pending' ? 'pending' : profile.approvalStatus;
     return (
@@ -165,8 +174,6 @@ export function RiderHomeScreen() {
       />
     );
   }
-
-  if (home.data.job) return <ActiveJob job={home.data.job} position={gps.position} />;
 
   const here = gps.position;
 

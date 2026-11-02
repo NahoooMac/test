@@ -90,6 +90,59 @@ export const en = {
     signingOut: 'Signing out…',
     switchAccount: 'Sign in with a different account',
   },
+  kyc: {
+    title: 'Verify your identity',
+    subtitle: 'Take each photo with your camera. Our team checks them before you can take jobs.',
+    intro: {
+      title: 'Verify your identity to start delivering',
+      body: 'For the safety of customers and riders, we check who you are before your first job.',
+      documents:
+        "Photos of your driver's licence, your vehicle's number plate and your national ID (front and back). Bicycles need only the ID.",
+      face: 'Three photos of your face: looking straight, then turned left, then turned right.',
+      review: 'A member of our team compares them and approves you, usually within a day.',
+      camera:
+        "We need your camera to take these photos live. Your browser will ask for permission — tap Allow. Photos can't be picked from your gallery.",
+      start: 'Allow camera and start',
+    },
+    kinds: {
+      license: { title: "Driver's licence", hint: 'Fit the whole licence in the frame. Avoid glare.' },
+      plate: { title: 'Number plate', hint: 'Stand behind your vehicle so the plate fills the frame.' },
+      id_front: { title: 'National ID — front', hint: 'Fit the whole card in the frame, details readable.' },
+      id_back: { title: 'National ID — back', hint: 'Turn the card over and fit it in the frame.' },
+      face_front: { title: 'Face — straight', hint: 'Look straight at the camera. Remove sunglasses or a cap.' },
+      face_left: { title: 'Face — turned left', hint: 'Keep your face inside the oval.' },
+      face_right: { title: 'Face — turned right', hint: 'Keep your face inside the oval.' },
+    },
+    pose: {
+      front: 'Look straight at the camera',
+      left: 'Turn your head to the left',
+      right: 'Turn your head to the right',
+    },
+    camera: {
+      denied:
+        'Camera access is blocked. Allow the camera for this site in your browser settings, then try again.',
+      insecure: 'The camera only works on a secure (https) page.',
+      unavailable: "We couldn't open a camera on this device.",
+    },
+    capture: 'Take photo',
+    retake: 'Retake',
+    usePhoto: 'Use photo',
+    review: 'Is everything sharp and readable, with no glare?',
+    captured: 'Captured',
+    notYet: 'Not taken yet',
+    needsRetake: 'Please retake',
+    continue_one: 'Take the next photo ({{count}} left)',
+    continue_other: 'Take the next photo ({{count}} left)',
+    submit: 'Submit for review',
+    rejected: 'Your verification was not approved',
+    resubmit: 'Some photos need to be retaken',
+    pending: {
+      title: 'Verification in review',
+      body: "We're checking your documents. You'll be able to go online as soon as you're approved.",
+    },
+    privacy:
+      'Your photos are encrypted, seen only by our verification team, and deleted after review.',
+  },
   account: {
     title: 'Account',
     phone: 'Phone',
@@ -397,6 +450,7 @@ export const en = {
     earnings: 'Earnings',
     liveOps: 'Live operations',
     riders: 'Riders',
+    verification: 'Verification',
     reconciliation: 'Reconciliation',
     pricing: 'Pricing',
     users: 'Users',

@@ -26,6 +26,8 @@ import { PaymentService } from './modules/payments/service.ts';
 import { adminDeliveryRoutes } from './modules/admin/deliveries.ts';
 import { adminFinanceRoutes } from './modules/admin/finance.ts';
 import { adminUserRoutes } from './modules/admin/users.ts';
+import { KycService } from './modules/kyc/service.ts';
+import { kycRoutes } from './modules/kyc/routes.ts';
 
 export interface AppDeps {
   config: Config;
@@ -85,7 +87,21 @@ export async function buildApp({
   const payments = new PaymentService(db, clock);
   const deliveries = new DeliveryService(db, clock, (id) => dispatcher.dispatch(id), hub, payments);
   const riders = new RiderService(db, clock, hub, payments);
+  const kyc = new KycService(db, config, clock, hub);
   const geoProvider = geo ?? createGeoProvider(config);
+
+  // Delete identity photos past their retention period, hourly (not in tests: they call it).
+  if (config.NODE_ENV !== 'test') {
+    const purge = () =>
+      kyc
+        .purgeExpired()
+        .then((n) => n > 0 && app.log.info({ removed: n }, 'expired KYC photos deleted'))
+        .catch((err) => app.log.error({ err }, 'KYC purge failed'));
+    const timer = setInterval(purge, 3_600_000);
+    timer.unref();
+    app.addHook('onReady', async () => void purge());
+    app.addHook('onClose', async () => clearInterval(timer));
+  }
 
   await app.register(
     async (api) => {
@@ -102,6 +118,8 @@ export async function buildApp({
       });
       await api.register(deliveryRoutes, { db, clock, auth, deliveries });
       await api.register(geoRoutes, { db, clock, auth, geo: geoProvider });
+      // Before riderRoutes: its catch-all for unknown /rider/* paths must not shadow these.
+      await api.register(kycRoutes, { db, clock, auth, kyc });
       await api.register(riderRoutes, { db, clock, auth, riders, dispatcher });
       await api.register(adminRiderRoutes, { db, clock, auth, realtime: hub });
       await api.register(adminOpsRoutes, { db, clock, auth });
@@ -126,5 +144,5 @@ export async function buildApp({
     { prefix: '/api' },
   );
 
-  return { app, dispatcher, hub, deliveries, riders };
+  return { app, dispatcher, hub, deliveries, riders, kyc };
 }

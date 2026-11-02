@@ -22,6 +22,8 @@ import {
   ACTOR_ROLES,
   CONTACT_OUTCOMES,
   DELIVERY_STATUSES,
+  KYC_DOCUMENT_KINDS,
+  KYC_STATUSES,
   LANGUAGES,
   PARCEL_SIZES,
   PAYERS,
@@ -30,6 +32,7 @@ import {
   USER_ROLES,
   USER_STATUSES,
   VEHICLE_TYPES,
+  type KycDocumentKind,
 } from '@dp/shared';
 
 const tstz = (name: string) => timestamp(name, { withTimezone: true });
@@ -234,6 +237,8 @@ export const payer = pgEnum('payer', PAYERS);
 export const paymentMethod = pgEnum('payment_method', PAYMENT_METHODS);
 export const parcelSize = pgEnum('parcel_size', PARCEL_SIZES);
 export const riderApproval = pgEnum('rider_approval', RIDER_APPROVAL_STATUSES);
+export const kycStatus = pgEnum('kyc_status', KYC_STATUSES);
+export const kycDocumentKind = pgEnum('kyc_document_kind', KYC_DOCUMENT_KINDS);
 export const actorRole = pgEnum('actor_role', ACTOR_ROLES);
 
 export const riders = pgTable(
@@ -248,6 +253,14 @@ export const riders = pgTable(
     reviewedBy: uuid('reviewed_by').references(() => users.id),
     reviewedAt: tstz('reviewed_at'),
     rejectionReason: text('rejection_reason'),
+    // Identity verification (admin-reviewed live camera captures; see kyc_documents).
+    kycStatus: kycStatus('kyc_status').notNull().default('not_submitted'),
+    kycSubmittedAt: tstz('kyc_submitted_at'),
+    kycReviewedAt: tstz('kyc_reviewed_at'),
+    kycReviewedBy: uuid('kyc_reviewed_by').references(() => users.id),
+    kycReason: text('kyc_reason'),
+    /** Captures the admin asked the rider to redo. */
+    kycRetake: jsonb('kyc_retake').$type<KycDocumentKind[]>().notNull().default([]),
     isOnline: boolean('is_online').notNull().default(false),
     currentLat: coord('current_lat'),
     currentLng: coord('current_lng'),
@@ -261,7 +274,36 @@ export const riders = pgTable(
       sql`${t.vehicleType} <> 'motorcycle' or ${t.plateNumber} is not null`,
     ),
     index('riders_dispatch_idx').on(t.approvalStatus, t.isOnline, t.vehicleType),
+    // The gate for every job path (dispatch, online, accept, admin assign) is approval_status =
+    // 'approved'; this makes approval impossible without an approved identity check.
+    check(
+      'riders_approved_needs_kyc',
+      sql`${t.approvalStatus} <> 'approved' or ${t.kycStatus} = 'approved'`,
+    ),
   ],
+);
+
+/**
+ * One current photo per rider and kind. Encrypted at rest (AES-256-GCM, key outside the database,
+ * bound to rider + kind), served only to admins, deleted on rejection, retake, and after retention.
+ */
+export const kycDocuments = pgTable(
+  'kyc_documents',
+  {
+    riderId: uuid('rider_id')
+      .notNull()
+      .references(() => riders.userId, { onDelete: 'cascade' }),
+    kind: kycDocumentKind('kind').notNull(),
+    ciphertext: text('ciphertext').notNull(),
+    iv: text('iv').notNull(),
+    authTag: text('auth_tag').notNull(),
+    mime: text('mime').notNull(),
+    bytes: integer('bytes').notNull(),
+    sha256: text('sha256').notNull(),
+    capturedAt: tstz('captured_at'),
+    createdAt: tstz('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.riderId, t.kind] })],
 );
 
 /** Versioned rates. Deliveries reference the rule they were priced with; history is never rewritten. */

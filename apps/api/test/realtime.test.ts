@@ -46,7 +46,7 @@ async function onlineRider(phone: string) {
   });
   await t.database.db
     .update(riders)
-    .set({ approvalStatus: 'approved' })
+    .set({ approvalStatus: 'approved', kycStatus: 'approved' })
     .where(eq(riders.userId, s.body.user.id));
   await call('POST', '/api/rider/status', s.cookie, { online: true });
   await call('POST', '/api/rider/location', s.cookie, MESKEL);

@@ -47,6 +47,7 @@ export async function adminRiderRoutes(
       vehicleType: r.vehicleType,
       plateNumber: r.plateNumber,
       approvalStatus: r.approvalStatus,
+      kycStatus: r.kycStatus,
       rejectionReason: r.rejectionReason,
       isOnline: r.isOnline,
       locationUpdatedAt: r.locationUpdatedAt?.toISOString() ?? null,
@@ -69,6 +70,14 @@ export async function adminRiderRoutes(
     const now = clock.now();
     const [current] = await db.select().from(riders).where(eq(riders.userId, req.params.id));
     if (!current) throw new AppError(404, 'NOT_FOUND', 'Rider not found.');
+    // Approval follows identity verification; it is done from the KYC review, never around it.
+    if (rule.to === 'approved' && current.kycStatus !== 'approved') {
+      throw new AppError(
+        409,
+        'KYC_REQUIRED',
+        "Review and approve the rider's identity verification first.",
+      );
+    }
     if (!rule.from.includes(current.approvalStatus)) {
       throw new AppError(
         409,
