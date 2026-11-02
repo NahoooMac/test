@@ -37,3 +37,5 @@ export function stageIndex(status: DeliveryStatus): number {
 
 export const isOpen = (s: DeliveryStatus) =>
   !['delivered', 'cancelled', 'returned', 'failed'].includes(s);
+
+export const vehicleLabel = (v: string) => v.charAt(0).toUpperCase() + v.slice(1);

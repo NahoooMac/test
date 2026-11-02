@@ -10,6 +10,7 @@ import {
   EmptyState,
   Notice,
   Panel,
+  Segmented,
   TextField,
   useToast,
 } from '../../ui/index.ts';
@@ -31,6 +32,7 @@ export function UsersAdmin() {
   const [query, setQuery] = useState('');
   const [target, setTarget] = useState<AdminUser | null>(null);
   const [reason, setReason] = useState('');
+  const [role, setRole] = useState<'all' | UserRole>('all');
 
   const users = useQuery({
     queryKey: ['admin', 'users', query],
@@ -111,9 +113,22 @@ export function UsersAdmin() {
         </Panel>
       )}
 
+      <Segmented
+        label="Filter by role"
+        className="max-w-lg"
+        value={role}
+        onChange={setRole}
+        options={[
+          { value: 'all', label: 'All', count: users.data?.length },
+          { value: 'customer', label: 'Customers', count: users.data?.filter((u) => u.role === 'customer').length },
+          { value: 'rider', label: 'Riders', count: users.data?.filter((u) => u.role === 'rider').length },
+          { value: 'admin', label: 'Admins', count: users.data?.filter((u) => u.role === 'admin').length },
+        ]}
+      />
+
       <DataTable<AdminUser>
         caption="Users"
-        rows={users.data ?? []}
+        rows={(users.data ?? []).filter((u) => role === 'all' || u.role === role)}
         loading={users.isPending}
         rowKey={(u) => u.id}
         empty={<EmptyState title="No users found" />}
@@ -121,7 +136,24 @@ export function UsersAdmin() {
           {
             key: 'name',
             header: 'Name',
-            cell: (u) => u.fullName ?? <span className="text-ink-3">—</span>,
+            cell: (u) => (
+              <span className="flex items-center gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-bold text-accent-soft-ink">
+                  {(u.fullName ?? '?')
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((p) => p[0]!.toUpperCase())
+                    .join('')}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold">
+                    {u.fullName ?? <span className="text-ink-3">—</span>}
+                  </span>
+                  <span className="block text-xs text-ink-3 capitalize">{u.role}</span>
+                </span>
+              </span>
+            ),
           },
           {
             key: 'phone',

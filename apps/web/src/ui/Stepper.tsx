@@ -23,7 +23,7 @@ export function Stepper({ steps, current }: { steps: string[]; current: number }
                 'flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
                 'transition-all duration-[var(--dur-normal)] ease-[var(--ease-out)]',
                 done && 'bg-accent text-accent-ink shadow-[var(--shadow-xs)]',
-                active && 'bg-ink text-canvas shadow-[var(--shadow-sm)]',
+                active && 'bg-accent text-white shadow-[0_4px_10px_-2px_rgba(37,99,235,0.55)]',
                 !done && !active && 'bg-surface-2 text-ink-3',
               )}
             >

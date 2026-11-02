@@ -1,12 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Bike } from 'lucide-react';
 import type { RiderProfile, VehicleType } from '@dp/shared';
 import { api, ApiRequestError } from '../../lib/api.ts';
 import { sessionQueryKey, useSession } from '../../lib/session.tsx';
+import { VehicleHero } from '../../map/VehicleHero.tsx';
 import { Button, ChoiceGroup, Notice, TextField } from '../../ui/index.ts';
-import { MotorcycleIcon } from '../deliveries/MotorcycleIcon.tsx';
 
 export function ApplyForm() {
   const { t } = useTranslation();
@@ -39,9 +38,7 @@ export function ApplyForm() {
       className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 px-5 pt-8 pb-safe"
     >
       <div className="animate-fade-in">
-        <span className="mb-5 flex size-16 items-center justify-center rounded-[var(--radius-xl)] bg-accent-soft text-accent-soft-ink shadow-[var(--shadow-sm)]">
-          <Bike className="size-8" aria-hidden />
-        </span>
+        <VehicleHero kind={vehicle} rider width={320} height={220} className="mb-4 w-48" />
         <h1 className="text-[32px] leading-[1.1] font-bold tracking-tight">
           {t('rider.apply.title')}
         </h1>
@@ -59,20 +56,13 @@ export function ApplyForm() {
         legend={t('rider.apply.vehicle')}
         value={vehicle}
         onChange={setVehicle}
-        choices={[
-          {
-            value: 'motorcycle',
-            label: t('booking.vehicles.motorcycle'),
-            icon: <MotorcycleIcon />,
-          },
-          {
-            value: 'bicycle',
-            label: t('booking.vehicles.bicycle'),
-            icon: <Bike className="size-5" aria-hidden />,
-          },
-        ]}
+        choices={(['motorcycle', 'bicycle', 'scooter'] as const).map((v) => ({
+          value: v,
+          label: t(`booking.vehicles.${v}`),
+          icon: <VehicleHero kind={v} rider={false} width={120} height={90} className="w-9" />,
+        }))}
       />
-      {vehicle === 'motorcycle' && (
+      {(vehicle === 'motorcycle' || vehicle === 'scooter') && (
         <TextField
           label={t('rider.apply.plate')}
           hint={t('rider.apply.plateHint')}

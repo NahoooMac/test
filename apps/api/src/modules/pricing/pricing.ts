@@ -31,7 +31,7 @@ export function estimateRoadKm(a: LatLng, b: LatLng): number {
 }
 
 /** Average door-to-door speeds in Addis traffic, plus time to reach the pickup. */
-const SPEED_KMH: Record<VehicleType, number> = { motorcycle: 22, bicycle: 13 };
+const SPEED_KMH: Record<VehicleType, number> = { motorcycle: 22, bicycle: 13, scooter: 18 };
 const PICKUP_BUFFER_MIN = 8;
 
 export function etaMinutes(km: number, vehicle: VehicleType): number {

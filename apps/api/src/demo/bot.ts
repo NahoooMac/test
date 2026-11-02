@@ -75,7 +75,6 @@ export class DemoBot {
       .where(eq(users.phoneE164, DEMO_PHONES.rider));
     if (!riderUser) return;
 
-    const now = this.clock.now();
     const [offer] = await this.db
       .select({ id: deliveryOffers.id })
       .from(deliveryOffers)

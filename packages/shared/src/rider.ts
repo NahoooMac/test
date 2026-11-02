@@ -33,11 +33,11 @@ export const riderApplySchema = z
       .optional(),
   })
   .superRefine((v, ctx) => {
-    if (v.vehicleType === 'motorcycle' && !v.plateNumber) {
+    if ((v.vehicleType === 'motorcycle' || v.vehicleType === 'scooter') && !v.plateNumber) {
       ctx.addIssue({
         code: 'custom',
         path: ['plateNumber'],
-        message: 'Motorcycles need a plate number.',
+        message: v.vehicleType === 'scooter' ? 'Scooters need a plate number.' : 'Motorcycles need a plate number.',
       });
     }
   });

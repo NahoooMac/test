@@ -14,6 +14,7 @@ const TYPES: Record<string, string> = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
+  '.webp': 'image/webp',
   '.ico': 'image/x-icon',
   '.json': 'application/json; charset=utf-8',
   '.webmanifest': 'application/manifest+json',
@@ -36,13 +37,16 @@ const YANDEX = [
   'https://*.yandex.com',
 ];
 
+// Road routes and turn-by-turn steps (booking route line, rider in-app navigation).
+const ROUTING = ['https://router.project-osrm.org'];
+
 export const WEB_CSP = [
   "default-src 'self'",
   `script-src 'self' ${YANDEX.join(' ')}`,
   // Yandex positions map elements with inline styles; React uses style attributes too.
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${YANDEX.join(' ')}`,
-  `connect-src 'self' ${YANDEX.join(' ')}`,
+  `connect-src 'self' ${[...YANDEX, ...ROUTING].join(' ')}`,
   "font-src 'self' data:",
   "worker-src 'self' blob:",
   "object-src 'none'",
@@ -70,7 +74,12 @@ export async function serveWebApp(app: FastifyInstance, distDir: string) {
   };
 
   app.get('/*', async (req, reply) => {
-    const path = decodeURIComponent((req.url.split('?')[0] ?? '/').replace(/^\/+/, ''));
+    let path: string;
+    try {
+      path = decodeURIComponent((req.url.split('?')[0] ?? '/').replace(/^\/+/, ''));
+    } catch {
+      return reply.status(400).send(); // malformed %-escape: not a server error
+    }
     // Unknown API routes keep returning JSON errors, never the HTML shell.
     if (path === 'api' || path.startsWith('api/')) {
       return reply

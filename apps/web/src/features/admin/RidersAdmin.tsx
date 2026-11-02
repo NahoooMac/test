@@ -13,6 +13,7 @@ import {
   useToast,
   type Tone,
 } from '../../ui/index.ts';
+import { vehicleLabel } from '../deliveries/status.ts';
 
 interface AdminRider {
   userId: string;
@@ -182,7 +183,7 @@ export function RidersAdmin() {
           {
             key: 'vehicle',
             header: 'Vehicle',
-            cell: (r) => (r.vehicleType === 'motorcycle' ? 'Motorcycle' : 'Bicycle'),
+            cell: (r) => vehicleLabel(r.vehicleType),
           },
           {
             key: 'plate',

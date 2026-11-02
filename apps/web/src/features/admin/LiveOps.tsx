@@ -5,11 +5,18 @@ import { pollEvery, useLiveConnected, type OpsSnapshot } from '../../lib/live.ts
 import { MapView, type MapMarker } from '../../map/MapView.tsx';
 import { Badge, DataTable, EmptyState, Panel, cn, type Tone } from '../../ui/index.ts';
 import { STATUS_TONE } from '../deliveries/status.ts';
+import { Overview } from './Overview.tsx';
 
 const RIDER_STATE: Record<OpsSnapshot['riders'][number]['state'], { label: string; tone: Tone }> = {
   idle: { label: 'Available', tone: 'success' },
   offered: { label: 'Offer pending', tone: 'warning' },
   on_job: { label: 'On a job', tone: 'info' },
+};
+
+const VEHICLE_LABEL: Record<string, string> = {
+  motorcycle: 'Motorcycle',
+  bicycle: 'Bicycle',
+  scooter: 'Scooter',
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -83,7 +90,10 @@ export function LiveOps() {
         </span>
       </div>
 
-      <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <Overview ridersOnline={counts.online} loading={ops.isPending} />
+
+      <dl className="relative grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-xl)] bg-navy text-navy-ink shadow-[var(--shadow-lg)] md:grid-cols-4">
+        <div className="pointer-events-none absolute -top-20 -right-10 size-56 rounded-full bg-accent/25 blur-3xl" aria-hidden />
         {(
           [
             ['Riders online', counts.online],
@@ -92,9 +102,9 @@ export function LiveOps() {
             ['In progress', counts.active],
           ] as const
         ).map(([label, value]) => (
-          <div key={label} className="rounded-[var(--radius-lg)] border border-line bg-surface px-4 py-3 shadow-[var(--shadow-xs)] transition-shadow duration-[var(--dur-fast)] hover:shadow-[var(--shadow-sm)]">
-            <dt className="text-xs font-semibold tracking-wide uppercase text-ink-3">{label}</dt>
-            <dd className="mt-1 text-[28px] font-bold tabular">{ops.isPending ? '—' : value}</dd>
+          <div key={label} className="relative px-5 py-4">
+            <dt className="text-xs font-semibold tracking-wide text-navy-ink/60 uppercase">{label}</dt>
+            <dd className="mt-1 text-[30px] leading-tight font-bold tabular">{ops.isPending ? '—' : value}</dd>
           </div>
         ))}
       </dl>
@@ -111,9 +121,9 @@ export function LiveOps() {
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Panel className="overflow-hidden">
-          <MapView className="h-[420px]" zoom={12} markers={markers} />
+          <MapView className="h-[460px]" zoom={12} markers={markers} scrollZoom />
           <p className="border-t border-line px-4 py-2 text-xs text-ink-3">
-            Green: motorcycles · Blue: bicycles · Rings: pickups waiting
+            3D icons show each rider's vehicle and heading · Rings: pickups waiting
           </p>
         </Panel>
         <Panel className="flex flex-col">
@@ -127,7 +137,7 @@ export function LiveOps() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{r.name ?? formatPhone(r.phone)}</p>
                   <p className="text-xs text-ink-3">
-                    {r.vehicleType === 'motorcycle' ? 'Motorcycle' : 'Bicycle'}
+                    {VEHICLE_LABEL[r.vehicleType]}
                     {r.plate ? ` · ${r.plate}` : ''}
                     {r.locationUpdatedAt
                       ? ` · GPS ${waited(Math.max(0, Math.floor((Date.now() - new Date(r.locationUpdatedAt).getTime()) / 1000)))} ago`
@@ -176,7 +186,7 @@ export function LiveOps() {
           {
             key: 'vehicle',
             header: 'Vehicle',
-            cell: (d) => (d.vehicleType === 'motorcycle' ? 'Motorcycle' : 'Bicycle'),
+            cell: (d) => VEHICLE_LABEL[d.vehicleType],
           },
           {
             key: 'rider',

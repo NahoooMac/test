@@ -24,6 +24,7 @@ import {
   useToast,
 } from '../../ui/index.ts';
 import { STATUS_TONE } from '../deliveries/status.ts';
+import { vehicleLabel } from '../deliveries/status.ts';
 
 interface Row {
   id: string;
@@ -270,7 +271,7 @@ function DeliveryDetailAdmin({ id }: { id: string }) {
         <div>
           <h1 className="font-mono text-[26px] font-bold tracking-tight">#{d.code}</h1>
           <p className="text-ink-2">
-            {d.vehicleType === 'motorcycle' ? 'Motorcycle' : 'Bicycle'} · {d.distanceKm.toFixed(1)}{' '}
+            {vehicleLabel(d.vehicleType)} · {d.distanceKm.toFixed(1)}{' '}
             km · booked {when(d.createdAt)}
             {d.dispatchRound > 0 && ` · dispatch round ${d.dispatchRound + 1}`}
           </p>

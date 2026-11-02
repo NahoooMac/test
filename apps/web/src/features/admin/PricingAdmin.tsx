@@ -12,6 +12,7 @@ import {
   TextField,
   useToast,
 } from '../../ui/index.ts';
+import { vehicleLabel } from '../deliveries/status.ts';
 
 interface Rule {
   id: string;
@@ -74,7 +75,7 @@ export function PricingAdmin() {
           {
             key: 'v',
             header: 'Vehicle',
-            cell: (r) => (r.vehicleType === 'motorcycle' ? 'Motorcycle' : 'Bicycle'),
+            cell: (r) => vehicleLabel(r.vehicleType),
           },
           { key: 'base', header: 'Base', align: 'right', cell: (r) => r.baseFare },
           { key: 'km', header: 'Per km', align: 'right', cell: (r) => r.perKm },
@@ -157,7 +158,7 @@ function RuleForm({ rule }: { rule: Rule }) {
     <Panel className="flex flex-col gap-3 p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">
-          {rule.vehicleType === 'motorcycle' ? 'Motorcycle' : 'Bicycle'}
+          {vehicleLabel(rule.vehicleType)}
         </h2>
         <span className="text-xs text-ink-3">since {when(rule.effectiveFrom)}</span>
       </div>

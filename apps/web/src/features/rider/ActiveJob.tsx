@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Navigation, Phone, PhoneOff } from 'lucide-react';
+import { MapPin, Navigation, Phone, PhoneOff, Wallet } from 'lucide-react';
 import {
   formatPhone,
   subCityName,
@@ -13,9 +13,10 @@ import {
 import { api, ApiRequestError } from '../../lib/api.ts';
 import { formatClock, useCountdown } from '../../lib/useCountdown.ts';
 import { MapView, type MapMarker } from '../../map/MapView.tsx';
-import { Badge, Button, ChoiceGroup, Notice, Panel, TextField, Timeline } from '../../ui/index.ts';
+import { Badge, Button, ChoiceGroup, Notice, Panel, SwipeSlider, TextField, Timeline } from '../../ui/index.ts';
 import { STATUS_TONE } from '../deliveries/status.ts';
 import { riderHomeKey } from './hooks.ts';
+import { NavigationView } from './NavigationView.tsx';
 
 const NEXT: Partial<
   Record<
@@ -38,10 +39,6 @@ const HEADLINE: Partial<Record<DeliveryStatus, string>> = {
   returning: 'rider.job.returning',
 };
 
-/** Yandex Maps route link; opens the Yandex Maps / Navigator app on Android when installed. */
-const navigateUrl = (p: { lat: number; lng: number }) =>
-  `https://yandex.com/maps/?rtext=~${p.lat},${p.lng}&rtt=auto`;
-
 export function ActiveJob({
   job,
   position,
@@ -53,6 +50,7 @@ export function ActiveJob({
   const queryClient = useQueryClient();
   const refresh = () => queryClient.invalidateQueries({ queryKey: riderHomeKey });
   const [showCalls, setShowCalls] = useState(false);
+  const [navigating, setNavigating] = useState(false);
 
   const step = useMutation({
     mutationFn: (to: string) =>
@@ -76,6 +74,10 @@ export function ActiveJob({
   const headingToPickup =
     job.status === 'assigned' || job.status === 'arrived_pickup' || job.status === 'returning';
   const stop = headingToPickup ? job.pickup : job.dropoff;
+  const navTarget = useMemo(
+    () => ({ lat: stop.lat, lng: stop.lng, address: stop.address }),
+    [stop.lat, stop.lng, stop.address],
+  );
   const stopLabel =
     job.status === 'returning'
       ? t('rider.job.returnTo')
@@ -88,13 +90,15 @@ export function ActiveJob({
     [job.canFailAt],
   );
   const failIn = useCountdown(failDeadline);
+  // The server refuses "delivered" until the fare is recorded; mirror that so the rider knows why.
+  const needsPayment = next === 'delivered' && !job.farePayment;
   // A failed delivery's fare is still due; it's collected when the parcel goes back to the sender.
+  // A sender's fare not recorded at pickup can still be recorded at the drop-off.
   const collectHere =
     (job.payer === 'sender' && job.status === 'arrived_pickup') ||
     (job.payer === 'receiver' && job.status === 'arrived_dropoff') ||
-    job.status === 'returning';
-  // The server refuses "delivered" until the fare is recorded; mirror that so the rider knows why.
-  const needsPayment = next === 'delivered' && !job.farePayment;
+    job.status === 'returning' ||
+    needsPayment;
   const error = step.error ?? release.error ?? fail.error ?? logCall.error;
   const time = (iso: string) =>
     new Date(iso).toLocaleTimeString(i18n.language === 'am' ? 'am-ET' : 'en-GB', {
@@ -110,22 +114,45 @@ export function ActiveJob({
       : []),
   ];
 
+  if (navigating) {
+    return (
+      <NavigationView
+        target={navTarget}
+        title={stopLabel}
+        contactPhone={stop.contactPhone}
+        position={position}
+        vehicleType={job.vehicleType}
+        onClose={() => setNavigating(false)}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-1 flex-col">
       <div className="relative">
         <MapView
-          className="h-64"
+          className="h-[52vh] min-h-[300px]"
           markers={markers}
           line={[job.pickup, job.dropoff]}
+          labels={{ pickup: t('booking.pickup'), dropoff: t('booking.dropoff') }}
           fit
-          interactive={false}
         />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-canvas to-transparent" />
+        <div className="pointer-events-none absolute top-4 right-4 flex flex-col items-end gap-2">
+          <div className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 text-xs font-bold shadow-[var(--shadow-md)] tabular">
+            <MapPin className="size-3.5 text-accent" aria-hidden />
+            {job.distanceKm.toFixed(1)} km
+          </div>
+          <div className="flex items-center gap-1.5 rounded-full bg-navy px-3 py-1.5 text-xs font-bold text-navy-ink shadow-[var(--shadow-md)] tabular">
+            <Wallet className="size-3.5 text-accent-2" aria-hidden />
+            {job.riderEarning} ETB
+          </div>
+        </div>
       </div>
-      <div className="flex flex-1 flex-col gap-4 px-4 pt-4 pb-4">
+      <div className="relative z-10 -mt-7 flex flex-1 flex-col gap-4 rounded-t-[28px] bg-canvas px-4 pt-3 pb-4 shadow-[0_-10px_28px_rgba(15,23,42,0.10)]">
+        <span className="mx-auto h-1.5 w-10 rounded-full bg-line-strong" aria-hidden />
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-[26px] font-bold tracking-tight">
+            <h1 className="text-[24px] font-bold tracking-tight">
               {t(HEADLINE[job.status] ?? `delivery.statuses.${job.status}`)}
             </h1>
             <p className="mt-0.5 text-sm text-ink-3 tabular">
@@ -138,8 +165,8 @@ export function ActiveJob({
         </div>
 
         <Panel className="p-4">
-          <p className="text-xs text-ink-3">{stopLabel}</p>
-          <p className="text-lg font-semibold">{stop.address}</p>
+          <p className="text-xs font-medium tracking-wide text-ink-3 uppercase">{stopLabel}</p>
+          <p className="mt-0.5 text-[22px] leading-tight font-bold tracking-tight">{stop.address}</p>
           {stop.subCity && (
             <p className="text-sm text-ink-3">{subCityName(stop.subCity, i18n.language)}</p>
           )}
@@ -147,23 +174,23 @@ export function ActiveJob({
             {stop.contactName} · <span className="tabular">{formatPhone(stop.contactPhone)}</span>
           </p>
           {stop.notes && <p className="mt-1 text-sm text-ink-2">“{stop.notes}”</p>}
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-4 flex gap-2">
             <a
               href={`tel:${stop.contactPhone}`}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-line-strong bg-surface font-semibold shadow-[var(--shadow-xs)] transition-all duration-[var(--dur-fast)] ease-[var(--ease-out)] hover:shadow-[var(--shadow-sm)] active:scale-[0.97]"
+              aria-label={t('rider.job.call')}
+              title={t('rider.job.call')}
+              className="inline-flex size-13 shrink-0 items-center justify-center rounded-[var(--radius-lg)] bg-accent-soft text-accent transition-all duration-[var(--dur-fast)] ease-[var(--ease-out)] hover:brightness-95 active:scale-[0.97]"
             >
-              <Phone className="size-4" aria-hidden />
-              {t('rider.job.call')}
+              <Phone className="size-5" aria-hidden />
             </a>
-            <a
-              href={navigateUrl(stop)}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-accent font-semibold text-accent-ink shadow-[var(--shadow-sm)] transition-all duration-[var(--dur-fast)] ease-[var(--ease-out)] hover:bg-accent-hover active:scale-[0.97]"
+            <button
+              type="button"
+              onClick={() => setNavigating(true)}
+              className="inline-flex h-13 flex-1 items-center justify-center gap-2 rounded-[var(--radius-lg)] bg-navy text-base font-semibold text-navy-ink shadow-[var(--shadow-md)] transition-all duration-[var(--dur-fast)] ease-[var(--ease-out)] hover:bg-navy-2 active:scale-[0.97]"
             >
-              <Navigation className="size-4" aria-hidden />
+              <Navigation className="size-5" aria-hidden />
               {t('rider.job.navigate')}
-            </a>
+            </button>
           </div>
         </Panel>
 
@@ -256,17 +283,28 @@ export function ActiveJob({
       {next && (
         <div className="sticky bottom-0 border-t border-line bg-surface/95 backdrop-blur-md px-4 pt-3 pb-3">
           {needsPayment && (
-            <p className="mb-2 text-center text-sm text-ink-3">{t('rider.job.payment.needed')}</p>
+            <p className="mb-2 rounded-[var(--radius-md)] bg-warning-soft px-3 py-2 text-center text-sm font-medium text-warning">
+              {t('rider.job.payment.needed')}
+            </p>
           )}
-          <Button
-            size="lg"
-            block
-            onClick={() => step.mutate(next)}
-            loading={step.isPending}
-            disabled={needsPayment}
-          >
-            {t(`rider.job.actions.${next}`)}
-          </Button>
+          {(next === 'picked_up' || next === 'delivered') && !needsPayment ? (
+            <SwipeSlider
+              label={t(`rider.job.actions.${next}`)}
+              onConfirm={() => step.mutate(next)}
+              loading={step.isPending}
+              disabled={needsPayment}
+            />
+          ) : (
+            <Button
+              size="lg"
+              block
+              onClick={() => step.mutate(next)}
+              loading={step.isPending}
+              disabled={needsPayment}
+            >
+              {t(`rider.job.actions.${next}`)}
+            </Button>
+          )}
         </div>
       )}
     </div>

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Navigate, useLocation, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import type { CurrentUser, OtpChallenge } from '@dp/shared';
+import { lastPhone } from '../../lib/persist.ts';
 import { sessionQueryKey, useSession } from '../../lib/session.tsx';
 import { CodeStep } from './CodeStep.tsx';
 import { PhoneStep } from './PhoneSignIn.tsx';
@@ -14,7 +15,7 @@ type Step =
   | { name: 'profile' };
 
 /**
- * Phone → code → (first time only) name. Each surface supplies its own layout and phone-step intro;
+ * Phone â†’ code â†’ (first time only) name. Each surface supplies its own layout and phone-step intro;
  * the flow supplies the headings for later steps so wording stays consistent.
  */
 export function SignInFlow({
@@ -34,7 +35,8 @@ export function SignInFlow({
   const navigate = useNavigate();
   const location = useLocation();
   const [step, setStep] = useState<Step>({ name: 'phone' });
-  const [phoneInput, setPhoneInput] = useState('');
+  // Prefilled with the number last used on this device, so signing in again is quick.
+  const [phoneInput, setPhoneInput] = useState(() => lastPhone.get());
 
   const from = (location.state as { from?: string } | null)?.from;
   const finish = (user: CurrentUser) => {
@@ -60,6 +62,7 @@ export function SignInFlow({
         onChangeNumber={() => setStep({ name: 'phone' })}
         onResent={(challenge) => setStep({ ...step, challenge })}
         onVerified={(r) => {
+          lastPhone.set(step.phoneInput);
           queryClient.setQueryData(sessionQueryKey, r.user);
           if (r.needsProfile) setStep({ name: 'profile' });
           else finish(r.user);

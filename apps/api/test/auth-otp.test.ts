@@ -137,6 +137,13 @@ describe('OTP request', () => {
     expect(msg!.errorCode).toBe('HTTP_400');
   });
 
+  it('an empty SMS balance says "try later", not "check the number"', async () => {
+    t.sms.failNext = new SmsSendError('not_sent', 'AFRO_401-9', 'balance too low');
+    const res = await requestOtp();
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error.code).toBe('SMS_UNAVAILABLE');
+  });
+
   it('an ambiguous failure (timeout) keeps the cooldown so no duplicate SMS is sent', async () => {
     t.sms.failNext = new SmsSendError('unknown', 'TIMEOUT', 'timeout');
     const first = await requestOtp();

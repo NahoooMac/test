@@ -97,6 +97,20 @@ export function CodeStep({
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
+      {challenge.devCode && (
+        // Development only: no real SMS is sent, so the server shows the code here instead.
+        <Notice tone="info">
+          Test mode (no SMS sent). Your code is{' '}
+          <button
+            type="button"
+            className="font-mono text-base font-bold tracking-widest underline"
+            onClick={() => setCode(challenge.devCode!)}
+          >
+            {challenge.devCode}
+          </button>{' '}
+          — tap it to fill.
+        </Notice>
+      )}
       <OtpInput
         label={t('auth.code.digit')}
         value={code}

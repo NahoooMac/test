@@ -47,11 +47,15 @@ const UNSAFE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
  */
 export function registerCsrfGuard(app: FastifyInstance, config: Config) {
   const allowed = new URL(config.APP_ORIGIN).origin;
+  // Development only: also accept the address the page was actually opened on (a phone on the
+  // LAN reaches the Vite proxy at the PC's IP, which the proxy passes through as Host).
+  const sameHost = (origin: string, host: string | undefined) =>
+    config.NODE_ENV !== 'production' && !!host && URL.parse(origin)?.host === host;
   app.addHook('onRequest', async (req) => {
     if (!UNSAFE.has(req.method)) return;
     const origin = req.headers.origin;
     const fetchSite = req.headers['sec-fetch-site'];
-    if (origin && origin !== allowed) throw forbidden();
+    if (origin && origin !== allowed && !sameHost(origin, req.headers.host)) throw forbidden();
     if (!origin && fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none')
       throw forbidden();
 
@@ -102,7 +106,12 @@ export function createAuthenticator(sessions: SessionService, config: Config) {
         if (req.cookies[sessionCookieName(config)]) clearSessionCookie(reply, config);
         throw unauthenticated();
       }
-      if (role && auth.user.role !== role) throw forbidden();
+      // Riders may also send parcels: 'customer' admits riders, so one phone signs in to both apps.
+      const ok =
+        !role ||
+        auth.user.role === role ||
+        (role === 'customer' && auth.user.role === 'rider');
+      if (!ok) throw forbidden();
       return auth;
     },
   };

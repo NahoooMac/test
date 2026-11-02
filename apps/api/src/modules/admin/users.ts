@@ -37,7 +37,8 @@ export async function adminUserRoutes(
       .where(
         q
           ? or(
-              ilike(users.fullName, `%${q}%`),
+              // Escape LIKE wildcards so a typed % or _ is matched literally.
+              ilike(users.fullName, `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`),
               digits.length >= 3 ? ilike(users.phoneE164, `%${phoneNeedle(digits)}%`) : undefined,
             )
           : undefined,

@@ -1,13 +1,29 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { ArrowDownUp, Banknote, Bike, ChevronLeft } from 'lucide-react';
+import {
+  ArrowDownUp,
+  Banknote,
+  Bike,
+  ChevronLeft,
+  FileText,
+  KeyRound,
+  LocateFixed,
+  Package,
+  Plus,
+  Shirt,
+  Smartphone,
+  UserRound,
+  UtensilsCrossed,
+} from 'lucide-react';
 import {
   formatPhone,
+  isInAddis,
   normalizeEthiopianPhone,
   type CreateDeliveryInput,
   type Delivery,
+  type LatLng,
   type ParcelSize,
   type Payer,
   type PaymentMethod,
@@ -16,8 +32,11 @@ import {
   type VehicleType,
 } from '@dp/shared';
 import { api, ApiRequestError } from '../../lib/api.ts';
+import { getPosition, type GeoProblem } from '../../lib/geo.ts';
 import { useSession } from '../../lib/session.tsx';
+import { uuid } from '../../lib/uuid.ts';
 import { MapView } from '../../map/MapView.tsx';
+import { VehicleHero } from '../../map/VehicleHero.tsx';
 import {
   Button,
   ChoiceGroup,
@@ -25,10 +44,13 @@ import {
   Notice,
   Panel,
   Skeleton,
+  Spinner,
   Stepper,
   TextField,
+  cn,
 } from '../../ui/index.ts';
 import { MotorcycleIcon } from '../deliveries/MotorcycleIcon.tsx';
+import { ScooterIcon } from '../deliveries/ScooterIcon.tsx';
 import { LocationPicker } from './LocationPicker.tsx';
 
 interface Contact {
@@ -62,12 +84,45 @@ export function BookingFlow() {
     notes: '',
   });
   const [receiver, setReceiver] = useState<Contact>({ name: '', phone: '', notes: '' });
-  const [vehicle, setVehicle] = useState<VehicleType | undefined>();
+  const [kind, setKind] = useState<ParcelKind | null>(null);
+  // Folded when the account already supplies a valid name and phone; it never folds mid-typing.
+  const [senderOpen, setSenderOpen] = useState(
+    () => !(sender.name.trim().length >= 2 && normalizeEthiopianPhone(sender.phone).ok),
+  );
+  const location = useLocation();
+  const [vehicle, setVehicle] = useState<VehicleType | undefined>(
+    () => (location.state as { vehicle?: VehicleType } | null)?.vehicle,
+  );
   const [payer, setPayer] = useState<Payer>('sender');
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [touched, setTouched] = useState(false);
   // One key per booking attempt: retries and double taps can never create two deliveries.
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
+  const [idempotencyKey] = useState(() => uuid());
+  const [geo, setGeo] = useState<GeoState>('idle');
+  const [here, setHere] = useState<LatLng | null>(null);
+
+  // Ask for the user's location as soon as they start, and use it as the pickup.
+  const locate = async () => {
+    setGeo('locating');
+    const r = await getPosition();
+    if (!r.ok) return setGeo(r.problem);
+    setHere(r.point);
+    if (!isInAddis(r.point)) return setGeo('outside');
+    try {
+      const place = await api<Place | null>(
+        `/geo/reverse?lat=${r.point.lat.toFixed(6)}&lng=${r.point.lng.toFixed(6)}`,
+      );
+      if (place) setPickup((current) => current ?? place);
+      setGeo(place ? 'done' : 'unavailable');
+    } catch {
+      setGeo('unavailable');
+    }
+  };
+  useEffect(() => {
+    if (!pickup) void locate();
+    // Only on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const quote = useQuery({
     queryKey: ['quote', pickup?.lat, pickup?.lng, dropoff?.lat, dropoff?.lng],
@@ -189,13 +244,15 @@ export function BookingFlow() {
       <main className="flex-1 overflow-y-auto px-4 pb-6">
         {step === 0 && (
           <>
+            <LocationBanner state={geo} onRetry={() => void locate()} />
             <MapView
-              className="mb-4 h-56 rounded-[var(--radius-lg)] border border-line shadow-[var(--shadow-sm)]"
+              className="mb-4 h-[40vh] min-h-[220px] rounded-[var(--radius-lg)] border border-line shadow-[var(--shadow-sm)]"
               markers={markers}
               line={pickup && dropoff ? [pickup, dropoff] : null}
+              labels={pickup && dropoff ? { pickup: t('booking.pickup'), dropoff: t('booking.dropoff') } : undefined}
               fit={markers.length > 1}
-              center={pickup ?? dropoff ?? undefined}
-              interactive={false}
+              center={pickup ?? dropoff ?? here ?? undefined}
+              zoom={pickup || here ? 15 : 13}
             />
             <Panel className="relative">
               <StopButton
@@ -229,49 +286,133 @@ export function BookingFlow() {
         )}
 
         {step === 1 && (
-          <div className="flex flex-col gap-6">
-            <section className="flex flex-col gap-4">
+          <div className="flex flex-col gap-7">
+            {/* 1. What: one tap for the common cases, typing only for "something else". */}
+            <section className="flex flex-col gap-3">
               <h1 className="text-[22px] font-bold tracking-tight">{t('booking.parcelTitle')}</h1>
+              <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={t('booking.parcelTitle')}>
+                {PARCEL_KINDS.map(({ kind: k, icon: Icon }) => (
+                  <button
+                    key={k}
+                    type="button"
+                    role="radio"
+                    aria-checked={kind === k}
+                    onClick={() => {
+                      setKind(k);
+                      setDescription(k === 'other' ? '' : t(`booking.kinds.${k}`));
+                    }}
+                    className={cn(
+                      'flex flex-col items-center gap-1.5 rounded-[var(--radius-lg)] border px-2 py-3 text-sm font-medium',
+                      'transition-colors duration-[var(--dur-fast)]',
+                      kind === k
+                        ? 'border-accent bg-accent-soft text-accent-soft-ink'
+                        : 'border-line bg-surface text-ink-2 hover:border-line-strong',
+                    )}
+                  >
+                    <Icon className="size-6" aria-hidden />
+                    {t(`booking.kinds.${k}`)}
+                  </button>
+                ))}
+              </div>
+              {kind === 'other' && (
+                <TextField
+                  label={t('booking.description')}
+                  placeholder={t('booking.otherPlaceholder')}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  autoFocus
+                  maxLength={200}
+                />
+              )}
+              {touched && description.trim().length < 2 && (
+                <p role="alert" className="text-sm font-medium text-danger">
+                  {t('booking.descriptionRequired')}
+                </p>
+              )}
+            </section>
+
+            {/* 2. How big. */}
+            <ChoiceGroup
+              legend={t('booking.howBig')}
+              columns={3}
+              value={size}
+              onChange={setSize}
+              choices={(['small', 'medium', 'large'] as const).map((s) => ({
+                value: s,
+                label: t(`booking.sizes.${s}`),
+                description: t(`booking.sizeHints.${s}`),
+              }))}
+            />
+
+            {/* 3. Who receives it: the only contact most people need to type. */}
+            <section className="flex flex-col gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">{t('booking.receiverTitle')}</h2>
+                <p className="text-sm text-ink-3">{t('booking.receiverHint')}</p>
+              </div>
               <TextField
-                label={t('booking.description')}
-                placeholder={t('booking.descriptionPlaceholder')}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                error={
-                  touched && description.trim().length < 2
-                    ? t('booking.descriptionRequired')
-                    : undefined
-                }
-                maxLength={200}
+                label={t('booking.name')}
+                autoComplete="off"
+                value={receiver.name}
+                onChange={(e) => setReceiver({ ...receiver, name: e.target.value })}
+                error={nameError(receiver.name)}
+                maxLength={80}
               />
-              <ChoiceGroup
-                legend={t('booking.size')}
-                columns={3}
-                value={size}
-                onChange={setSize}
-                choices={(['small', 'medium', 'large'] as const).map((s) => ({
-                  value: s,
-                  label: t(`booking.sizes.${s}`),
-                  description: t(`booking.sizeHints.${s}`),
-                }))}
+              <PhoneField
+                value={receiver.phone}
+                onChange={(phone) => setReceiver({ ...receiver, phone })}
+                error={phoneError(receiver.phone)}
+              />
+              <OptionalNotes
+                value={receiver.notes}
+                onChange={(notes) => setReceiver({ ...receiver, notes })}
               />
             </section>
-            <ContactFields
-              title={t('booking.sender')}
-              where={pickup?.name}
-              value={sender}
-              onChange={setSender}
-              nameError={nameError(sender.name)}
-              phoneError={phoneError(sender.phone)}
-            />
-            <ContactFields
-              title={t('booking.receiver')}
-              where={dropoff?.name}
-              value={receiver}
-              onChange={setReceiver}
-              nameError={nameError(receiver.name)}
-              phoneError={phoneError(receiver.phone)}
-            />
+
+            {/* 4. Pickup contact: filled from the account, so it stays folded unless it needs fixing. */}
+            <section className="flex flex-col gap-3">
+              <h2 className="text-lg font-semibold">{t('booking.pickupContact')}</h2>
+              {senderOpen ? (
+                <>
+                  <TextField
+                    label={t('booking.name')}
+                    autoComplete="name"
+                    value={sender.name}
+                    onChange={(e) => setSender({ ...sender, name: e.target.value })}
+                    error={nameError(sender.name)}
+                    maxLength={80}
+                  />
+                  <PhoneField
+                    value={sender.phone}
+                    onChange={(phone) => setSender({ ...sender, phone })}
+                    error={phoneError(sender.phone)}
+                  />
+                </>
+              ) : (
+                <Panel className="flex items-center gap-3 p-4">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-soft-ink">
+                    <UserRound className="size-5" aria-hidden />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold">
+                      {sender.name} <span className="font-normal text-ink-3">({t('booking.you')})</span>
+                    </span>
+                    <span className="block text-sm text-ink-3 tabular">{displayPhone(sender.phone)}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSenderOpen(true)}
+                    className="h-10 shrink-0 px-2 text-sm font-semibold text-accent"
+                  >
+                    {t('booking.change')}
+                  </button>
+                </Panel>
+              )}
+              <OptionalNotes
+                value={sender.notes}
+                onChange={(notes) => setSender({ ...sender, notes })}
+              />
+            </section>
           </div>
         )}
 
@@ -311,12 +452,15 @@ export function BookingFlow() {
                     value: o.vehicleType,
                     label: t(`booking.vehicles.${o.vehicleType}`),
                     description: o.unavailableReason ?? t(`booking.vehicleHints.${o.vehicleType}`),
-                    icon:
-                      o.vehicleType === 'motorcycle' ? (
-                        <MotorcycleIcon />
-                      ) : (
-                        <Bike className="size-5" aria-hidden />
-                      ),
+                    icon: (
+                      <VehicleHero
+                        kind={o.vehicleType}
+                        rider={false}
+                        width={120}
+                        height={90}
+                        className="w-9"
+                      />
+                    ),
                     disabled: !o.available,
                     aside: (
                       <span className="text-right">
@@ -360,6 +504,33 @@ export function BookingFlow() {
         {step === 3 && chosen && pickup && dropoff && (
           <div className="flex flex-col gap-4">
             <h1 className="text-[22px] font-bold tracking-tight">{t('booking.confirmTitle')}</h1>
+
+            {/* Fare hero */}
+            <div className="relative overflow-hidden rounded-[var(--radius-xl)] bg-accent-soft p-5 shadow-[var(--shadow-sm)]">
+              <div className="absolute -top-8 -right-8 size-32 rounded-full bg-accent/10" aria-hidden />
+              <div className="relative flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold tracking-wide text-accent-soft-ink/70 uppercase">{t('booking.fare')}</p>
+                  <p className="mt-1 text-[36px] font-bold tracking-tight text-accent-soft-ink tabular">
+                    {chosen.fare} <span className="text-base font-semibold">ETB</span>
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-accent-soft-ink">
+                    {chosen.vehicleType === 'motorcycle' ? (
+                      <MotorcycleIcon className="size-4" />
+                    ) : chosen.vehicleType === 'scooter' ? (
+                      <ScooterIcon className="size-4" />
+                    ) : (
+                      <Bike className="size-4" aria-hidden />
+                    )}
+                    {t(`booking.vehicles.${chosen.vehicleType}`)}
+                  </span>
+                  <span className="text-xs text-accent-soft-ink/70 tabular">~{chosen.etaMin} min</span>
+                </div>
+              </div>
+            </div>
+
             <Panel className="p-4">
               <RouteLines
                 from={pickup.name}
@@ -374,19 +545,9 @@ export function BookingFlow() {
                 value={`${description} · ${t(`booking.sizes.${size}`)}`}
               />
               <Row
-                label={t('booking.vehicleTitle')}
-                value={`${t(`booking.vehicles.${chosen.vehicleType}`)} · ~${chosen.etaMin} min`}
-              />
-              <Row
                 label={t('booking.payerTitle')}
                 value={`${t(`booking.payers.${payer}`)} · ${t(`booking.methods.${method}`)}`}
               />
-              <div className="flex items-baseline justify-between px-4 py-4">
-                <span className="font-semibold">{t('booking.fare')}</span>
-                <span className="text-[26px] font-bold tracking-tight tabular">
-                  {chosen.fare} <span className="text-sm font-medium text-ink-3">ETB</span>
-                </span>
-              </div>
             </Panel>
             <Notice tone="info">
               {t('booking.cancelPolicy', {
@@ -463,54 +624,101 @@ function StopButton({
   );
 }
 
-function ContactFields({
-  title,
-  where,
+type GeoState = 'idle' | 'locating' | 'done' | 'outside' | GeoProblem;
+
+/** What the location prompt is doing, shown above the route map. */
+function LocationBanner({ state, onRetry }: { state: GeoState; onRetry: () => void }) {
+  const { t } = useTranslation();
+  if (state === 'idle') return null;
+  if (state === 'locating') {
+    return (
+      <p className="mb-3 flex items-center gap-2 rounded-[var(--radius-lg)] bg-accent-soft px-4 py-3 text-sm font-medium text-accent-soft-ink">
+        <Spinner className="size-4" />
+        {t('booking.geo.locating')}
+      </p>
+    );
+  }
+  if (state === 'done') {
+    return (
+      <p className="mb-3 flex items-center gap-2 rounded-[var(--radius-lg)] bg-success-soft px-4 py-3 text-sm font-medium text-success">
+        <LocateFixed className="size-4 shrink-0" aria-hidden />
+        {t('booking.geo.done')}
+      </p>
+    );
+  }
+  return (
+    <Notice tone="warning" className="mb-3">
+      <span className="block">{t(`booking.geo.${state}`)}</span>
+      {state !== 'insecure' && state !== 'unsupported' && (
+        <button type="button" onClick={onRetry} className="mt-1 font-semibold underline">
+          {t('booking.geo.retry')}
+        </button>
+      )}
+    </Notice>
+  );
+}
+
+type ParcelKind = 'documents' | 'food' | 'clothes' | 'electronics' | 'keys' | 'other';
+
+const PARCEL_KINDS: { kind: ParcelKind; icon: typeof FileText }[] = [
+  { kind: 'documents', icon: FileText },
+  { kind: 'food', icon: UtensilsCrossed },
+  { kind: 'clothes', icon: Shirt },
+  { kind: 'electronics', icon: Smartphone },
+  { kind: 'keys', icon: KeyRound },
+  { kind: 'other', icon: Package },
+];
+
+function PhoneField({
   value,
   onChange,
-  nameError,
-  phoneError,
+  error,
 }: {
-  title: string;
-  where?: string | undefined;
-  value: Contact;
-  onChange: (c: Contact) => void;
-  nameError?: string | undefined;
-  phoneError?: string | undefined;
+  value: string;
+  onChange: (v: string) => void;
+  error?: string | undefined;
 }) {
   const { t } = useTranslation();
   return (
-    <section className="flex flex-col gap-3">
-      <div>
-        <h2 className="text-base font-semibold">{title}</h2>
-        {where && <p className="truncate text-sm text-ink-3">{where}</p>}
-      </div>
-      <TextField
-        label={t('booking.name')}
-        autoComplete="off"
-        value={value.name}
-        onChange={(e) => onChange({ ...value, name: e.target.value })}
-        error={nameError}
-        maxLength={80}
-      />
-      <TextField
-        label={t('booking.phone')}
-        prefix="+251"
-        type="tel"
-        inputMode="tel"
-        placeholder="91 123 4567"
-        value={value.phone}
-        onChange={(e) => onChange({ ...value, phone: e.target.value })}
-        error={phoneError}
-      />
-      <TextField
-        label={t('booking.notes')}
-        placeholder={t('booking.notesPlaceholder')}
-        value={value.notes}
-        onChange={(e) => onChange({ ...value, notes: e.target.value })}
-        maxLength={300}
-      />
-    </section>
+    <TextField
+      label={t('booking.phone')}
+      prefix="+251"
+      type="tel"
+      inputMode="tel"
+      autoComplete="off"
+      placeholder="91 123 4567"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      error={error}
+    />
+  );
+}
+
+/** Notes for the rider stay hidden behind a link until someone wants them. */
+function OptionalNotes({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(value.length > 0);
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex h-10 items-center gap-1.5 self-start text-sm font-semibold text-accent"
+      >
+        <Plus className="size-4" aria-hidden />
+        {t('booking.addNotes')}
+      </button>
+    );
+  }
+  return (
+    <TextField
+      label={t('booking.notes')}
+      placeholder={t('booking.notesPlaceholder')}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      autoFocus={value.length === 0}
+      maxLength={300}
+    />
   );
 }
 

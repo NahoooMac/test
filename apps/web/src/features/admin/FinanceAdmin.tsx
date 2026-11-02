@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download } from 'lucide-react';
 import { formatPhone, type PaymentMethod } from '@dp/shared';
 import { api, ApiRequestError } from '../../lib/api.ts';
+import { uuid } from '../../lib/uuid.ts';
 import {
   Button,
   ChoiceGroup,
@@ -171,7 +172,7 @@ function RiderLedger({ rider, onClose }: { rider: Recon['riders'][number]; onClo
   const [method, setMethod] = useState<PaymentMethod>('telebirr');
   const [reference, setReference] = useState('');
   // One key per settlement form: a double click or retry cannot record it twice.
-  const [key, setKey] = useState(() => crypto.randomUUID());
+  const [key, setKey] = useState(() => uuid());
 
   const settle = useMutation({
     mutationFn: () =>
@@ -187,7 +188,7 @@ function RiderLedger({ rider, onClose }: { rider: Recon['riders'][number]; onClo
       );
       setAmount('');
       setReference('');
-      setKey(crypto.randomUUID());
+      setKey(uuid());
       void queryClient.invalidateQueries({ queryKey: ['admin'] });
     },
   });

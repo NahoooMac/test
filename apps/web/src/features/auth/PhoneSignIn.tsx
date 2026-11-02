@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowRight } from 'lucide-react';
 import { normalizeEthiopianPhone, type OtpChallenge } from '@dp/shared';
 import { api } from '../../lib/api.ts';
-import { Button, Notice, TextField } from '../../ui/index.ts';
+import { Button, EthiopiaFlag, Notice, TextField } from '../../ui/index.ts';
 import { authErrorMessage } from './messages.ts';
 
 /**
@@ -43,7 +43,12 @@ export function PhoneStep({
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
       <TextField
         label={t('auth.phoneLabel')}
-        prefix="+251"
+        prefix={
+          <>
+            <EthiopiaFlag className="h-3.5 w-5 rounded-[2px]" />
+            +251
+          </>
+        }
         type="tel"
         inputMode="tel"
         autoComplete="tel-national"

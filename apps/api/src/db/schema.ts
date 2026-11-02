@@ -97,6 +97,36 @@ export const sessions = pgTable(
   ],
 );
 
+/** Username/password sign-in, for admins only. Set with `npm run admin:password`. */
+export const adminCredentials = pgTable(
+  'admin_credentials',
+  {
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    username: text('username').notNull(),
+    // scrypt$N$r$p$salt$hash; the password itself is never stored.
+    passwordHash: text('password_hash').notNull(),
+    passwordChangedAt: tstz('password_changed_at').notNull().defaultNow(),
+    createdAt: tstz('created_at').notNull().defaultNow(),
+    // Verified by SMS code; receives codes for 2-step sign-in and password reset.
+    recoveryPhone: text('recovery_phone'),
+    twoStep: boolean('two_step').notNull().default(false),
+  },
+  (t) => [
+    uniqueIndex('admin_credentials_username_key').on(t.username),
+    check('admin_credentials_username_format', sql`${t.username} ~ '^[a-z0-9._-]{3,32}$'`),
+    check(
+      'admin_credentials_recovery_phone_format',
+      sql`${t.recoveryPhone} is null or ${t.recoveryPhone} ~ '^\\+251[79][0-9]{8}$'`,
+    ),
+    check(
+      'admin_credentials_two_step_needs_phone',
+      sql`not ${t.twoStep} or ${t.recoveryPhone} is not null`,
+    ),
+  ],
+);
+
 export const otpChallenges = pgTable(
   'otp_challenges',
   {

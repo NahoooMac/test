@@ -9,7 +9,7 @@ export type UserStatus = (typeof USER_STATUSES)[number];
 export const LANGUAGES = ['en', 'am'] as const;
 export type Language = (typeof LANGUAGES)[number];
 
-export const VEHICLE_TYPES = ['motorcycle', 'bicycle'] as const;
+export const VEHICLE_TYPES = ['motorcycle', 'bicycle', 'scooter'] as const;
 export type VehicleType = (typeof VEHICLE_TYPES)[number];
 
 export const PAYERS = ['sender', 'receiver'] as const;

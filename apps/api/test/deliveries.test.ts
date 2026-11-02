@@ -178,9 +178,11 @@ describe('create', () => {
     );
   });
 
-  it('riders and admins cannot book as customers', async () => {
+  it('riders can also book (same phone, both apps); admins cannot', async () => {
     await t.database.db.update(users).set({ role: 'rider' }).where(eq(users.id, userId));
-    expect((await create()).statusCode).toBe(403);
+    expect((await create(booking(), 'key-rider-0001')).statusCode).toBe(201);
+    await t.database.db.update(users).set({ role: 'admin' }).where(eq(users.id, userId));
+    expect((await create(booking(), 'key-admin-0001')).statusCode).toBe(403);
   });
 });
 

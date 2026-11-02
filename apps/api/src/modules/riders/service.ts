@@ -26,6 +26,7 @@ import { AppError, isUniqueViolation, violatedConstraint } from '../../shared/er
 import { canTransition, STATUS_TIMESTAMP } from '../deliveries/state-machine.ts';
 import { noopRealtime, type Realtime } from '../realtime/hub.ts';
 import { PaymentService } from '../payments/service.ts';
+import { currentRules } from '../pricing/repo.ts';
 
 type DeliveryRow = typeof deliveries.$inferSelect;
 
@@ -50,8 +51,8 @@ export class RiderService {
   // ── Application ────────────────────────────────────────────────────────────
 
   /**
-   * One role per account (plan Q4 default): a phone number that has booked deliveries as a
-   * customer cannot become a rider, so a rider never sees their own bookings as jobs.
+   * A customer can apply to ride with the same phone number and keep sending parcels: a rider
+   * account still signs in to the customer app, and dispatch never offers riders their own bookings.
    */
   async apply(userId: string, input: z.output<typeof riderApplySchema>): Promise<RiderProfile> {
     const [user] = await this.db.select().from(users).where(eq(users.id, userId));
@@ -59,17 +60,11 @@ export class RiderService {
     if (user.role === 'admin') {
       throw new AppError(409, 'ROLE_CONFLICT', 'Staff accounts cannot register as riders.');
     }
-    const [booked] = await this.db
-      .select({ id: deliveries.id })
-      .from(deliveries)
-      .where(eq(deliveries.customerId, userId))
-      .limit(1);
-    if (booked) {
-      throw new AppError(
-        409,
-        'ROLE_CONFLICT',
-        'This phone number is already used for sending parcels. Register with a different number.',
-      );
+    // Only vehicles the service prices (and the database knows) can be registered.
+    if (!(await currentRules(this.db)).has(input.vehicleType)) {
+      throw new AppError(409, 'VEHICLE_NOT_OFFERED', 'We are not taking this vehicle type yet.', {
+        fields: { vehicleType: 'We are not taking this vehicle type yet.' },
+      });
     }
     const now = this.clock.now();
     await this.db.transaction(async (tx) => {

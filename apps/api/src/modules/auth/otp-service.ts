@@ -4,7 +4,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import { maskPhone, normalizeEthiopianPhone, type OtpChallenge } from '@dp/shared';
 import type { Config } from '../../config/env.ts';
 import type { Db } from '../../db/client.ts';
-import { otpChallenges, smsMessages, users } from '../../db/schema.ts';
+import { adminCredentials, otpChallenges, smsMessages, users } from '../../db/schema.ts';
 import { SmsSendError, type SmsProvider } from '../../integrations/sms/index.ts';
 import { addSeconds, type Clock } from '../../shared/clock.ts';
 import { AppError, isUniqueViolation, tooManyRequests } from '../../shared/errors.ts';
@@ -164,7 +164,13 @@ export class OtpService {
     }
 
     if (!demoBypass) await this.sendCode(challenge, code);
-    return this.describe(challenge, now);
+    const described = this.describe(challenge, now);
+    // Development with the console provider (no real SMS): hand the code to the screen so phones
+    // on the LAN can sign in. Config refuses the console provider in production.
+    if (this.d.sms.name === 'console' && config.NODE_ENV === 'development') {
+      return { ...described, devCode: code };
+    }
+    return described;
   }
 
   async verify(
@@ -172,6 +178,31 @@ export class OtpService {
     code: string,
     ctx: RequestContext,
   ): Promise<{ user: UserRow; token: string; expiresAt: Date }> {
+    const challenge = await this.check(challengeId, code, ctx);
+    return this.signIn(challenge, ctx);
+  }
+
+  /**
+   * Proves the code for a challenge without signing anyone in (admin recovery phone, 2-step,
+   * password reset). Same attempt counting and lockout as sign-in; the challenge is used up.
+   */
+  async confirm(challengeId: string, code: string, ctx: RequestContext): Promise<string> {
+    const challenge = await this.check(challengeId, code, ctx);
+    const [consumed] = await this.d.db
+      .update(otpChallenges)
+      .set({ closedAt: this.d.clock.now(), closeReason: 'consumed' })
+      .where(and(eq(otpChallenges.id, challenge.id), isNull(otpChallenges.closedAt)))
+      .returning({ id: otpChallenges.id });
+    if (!consumed) throw invalidCode({ expired: true });
+    return challenge.phoneE164;
+  }
+
+  /** Counts the attempt and compares the code; throws on a wrong, expired or exhausted code. */
+  private async check(
+    challengeId: string,
+    code: string,
+    ctx: RequestContext,
+  ): Promise<ChallengeRow> {
     const { db, config, clock } = this.d;
     const now = clock.now();
 
@@ -212,7 +243,15 @@ export class OtpService {
       }
       throw invalidCode({ attemptsRemaining: remaining });
     }
+    return challenge;
+  }
 
+  private async signIn(
+    challenge: ChallengeRow,
+    ctx: RequestContext,
+  ): Promise<{ user: UserRow; token: string; expiresAt: Date }> {
+    const { db } = this.d;
+    const now = this.d.clock.now();
     return db.transaction(async (tx) => {
       // Single use: only the first successful verification closes the challenge.
       const [consumed] = await tx
@@ -242,6 +281,18 @@ export class OtpService {
 
       if (user!.status !== 'active') {
         throw new AppError(403, 'ACCOUNT_SUSPENDED', 'This account is suspended. Contact support.');
+      }
+      // An admin with a password signs in only with it; a code to their phone is not enough.
+      const [cred] = await tx
+        .select({ userId: adminCredentials.userId })
+        .from(adminCredentials)
+        .where(eq(adminCredentials.userId, user!.id));
+      if (cred) {
+        throw new AppError(
+          403,
+          'USE_PASSWORD',
+          'This is a staff account. Sign in with your username and password at /admin.',
+        );
       }
 
       const session = await this.d.sessions.create(tx, user!, ctx);
@@ -357,6 +408,16 @@ export class OtpService {
           .update(otpChallenges)
           .set({ lastSentAt: null })
           .where(eq(otpChallenges.id, challenge.id));
+        // Our side (balance used up, bad API key, provider down): not the user's number. Say so,
+        // and log loudly so an operator tops up / fixes it.
+        if (/^(AFRO_401|HTTP_401|HTTP_403|HTTP_5)/.test(e.code)) {
+          log.error({ provider: sms.name, code: e.code, reason: e.message }, 'SMS provider unavailable');
+          throw new AppError(
+            503,
+            'SMS_UNAVAILABLE',
+            "We can't send codes right now. Please try again later.",
+          );
+        }
         throw new AppError(502, 'SMS_SEND_FAILED', "We couldn't send the code. Please try again.");
       }
       // Outcome unknown (e.g. timeout): the SMS may still arrive. Keep the cooldown so we don't

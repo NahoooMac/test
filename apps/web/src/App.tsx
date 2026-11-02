@@ -1,9 +1,10 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from './ui/index.ts';
-import { FullScreenLoader, useSession } from './lib/session.tsx';
+import { FullScreenLoader, sessionQueryKey, useSession } from './lib/session.tsx';
 import { useLiveEvents } from './lib/live.ts';
+import { clearPersisted, persistQueries } from './lib/persist.ts';
 
 // Each surface is its own lazily-loaded bundle: admin code never ships to a customer's phone.
 const CustomerApp = lazy(() => import('./surfaces/customer/CustomerApp.tsx'));
@@ -14,9 +15,11 @@ const DesignPreview = import.meta.env.DEV ? lazy(() => import('./design/DesignPr
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { refetchOnWindowFocus: false },
+    // gcTime matches the saved copy's lifetime, so restored data is not dropped before it's used.
+    queries: { refetchOnWindowFocus: false, gcTime: 7 * 24 * 3600_000 },
   },
 });
+persistQueries(queryClient);
 
 export function App() {
   return (
@@ -44,5 +47,12 @@ export function App() {
 function LiveBridge() {
   const session = useSession();
   useLiveEvents(!!session.data);
+  // Session ended (expired, revoked, signed out elsewhere): drop that person's saved data.
+  const signedOut = session.isSuccess && session.data === null;
+  useEffect(() => {
+    if (!signedOut) return;
+    queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== sessionQueryKey[0] });
+    clearPersisted();
+  }, [signedOut]);
   return null;
 }

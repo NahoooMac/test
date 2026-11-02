@@ -5,7 +5,7 @@
 //  - delivery_offers_one_open_per_rider:    a rider holds at most one open offer
 //  - deliveries_one_active_per_rider:       a rider has at most one active delivery
 // So several API instances (or overlapping ticks) can run this safely.
-import { and, asc, eq, inArray, isNull, lt, notExists, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, ne, notExists, sql } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import { ACTIVE_RIDER_STATUSES } from '@dp/shared';
 import type { Db } from '../../db/client.ts';
@@ -63,6 +63,7 @@ export class Dispatcher {
         lat: deliveries.pickupLat,
         lng: deliveries.pickupLng,
         round: deliveries.dispatchRound,
+        customerId: deliveries.customerId,
       })
       .from(deliveries)
       .where(eq(deliveries.id, deliveryId));
@@ -78,6 +79,8 @@ export class Dispatcher {
           eq(riders.approvalStatus, 'approved'),
           eq(riders.isOnline, true),
           eq(riders.vehicleType, d.vehicleType),
+          // A rider who also sends parcels is never offered their own delivery.
+          ne(riders.userId, d.customerId),
           sql`${riders.locationUpdatedAt} > ${addSeconds(now, -this.opts.locationFreshSec).toISOString()}::timestamptz`,
           sql`${km} <= ${this.opts.maxRadiusKm}`,
           notExists(

@@ -1,0 +1,4 @@
+ALTER TABLE "admin_credentials" ADD COLUMN "recovery_phone" text;--> statement-breakpoint
+ALTER TABLE "admin_credentials" ADD COLUMN "two_step" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "admin_credentials" ADD CONSTRAINT "admin_credentials_recovery_phone_format" CHECK ("admin_credentials"."recovery_phone" is null or "admin_credentials"."recovery_phone" ~ '^\+251[79][0-9]{8}$');--> statement-breakpoint
+ALTER TABLE "admin_credentials" ADD CONSTRAINT "admin_credentials_two_step_needs_phone" CHECK (not "admin_credentials"."two_step" or "admin_credentials"."recovery_phone" is not null);

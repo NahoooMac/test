@@ -6,56 +6,59 @@
 @import '@fontsource/noto-sans-ethiopic/700.css';
 
 /*
- * Design tokens — Phase 2 premium design system.
+ * Design tokens — blue brand system.
  *
  * Components use the semantic Tailwind names (bg-surface, text-ink-2, …), never raw hex.
- * Light/dark and accent options swap in one place.
- *
- * data-theme="dark"   → night mode (rider default at night; follows system elsewhere)
- * data-accent="amber" → alternative signal colour under evaluation (default is green)
+ * data-theme="dark" keeps a matching night palette; the surfaces currently run light.
  */
 :root {
   color-scheme: light;
 
   /* ── Surfaces ── */
-  --c-canvas: #f7f6f3;
+  --c-canvas: #f8fafc;
   --c-surface: #ffffff;
-  --c-surface-2: #f0ede7;
-  --c-surface-3: #e8e4dc;
-  --c-line: #e3dfd6;
-  --c-line-strong: #c3beb2;
+  --c-surface-2: #f1f5f9;
+  --c-surface-3: #e2e8f0;
+  --c-line: #e2e8f0;
+  --c-line-strong: #cbd5e1;
 
   /* ── Text ── */
-  --c-ink: #111318;
-  --c-ink-2: #454952;
-  --c-ink-3: #5f636a; /* ≥ 4.5:1 on every light surface incl. surface-2 (WCAG AA) */
-  --c-inverse: #111318;
-  --c-inverse-ink: #f7f6f3;
+  --c-ink: #0f172a;
+  --c-ink-2: #334155;
+  --c-ink-3: #64748b;
+  --c-inverse: #0f172a;
+  --c-inverse-ink: #f8fafc;
+
+  /* ── Navy (dark cards, nav bar) ── */
+  --c-navy: #0f172a;
+  --c-navy-2: #1e293b;
+  --c-navy-ink: #f8fafc;
 
   /* ── Brand accent ── */
-  --c-accent: #0d7a52;
-  --c-accent-hover: #096843;
+  --c-accent: #2563eb;
+  --c-accent-hover: #1d4ed8;
+  --c-accent-2: #3b82f6;
   --c-accent-ink: #ffffff;
-  --c-accent-soft: #daf1e6;
-  --c-accent-soft-ink: #064d33;
+  --c-accent-soft: #dbeafe;
+  --c-accent-soft-ink: #1e3a8a;
 
   /* ── Semantic status ── */
-  --c-success: #17784a;
-  --c-success-soft: #dbf1e3;
-  --c-warning: #8d5200;
-  --c-warning-soft: #fbeacb;
-  --c-danger: #c0261a;
-  --c-danger-soft: #fde2de;
-  --c-info: #1d5cac;
-  --c-info-soft: #dbe8f8;
-  --c-focus: #1d5cac;
+  --c-success: #16a34a;
+  --c-success-soft: #dcfce7;
+  --c-warning: #b45309;
+  --c-warning-soft: #fef3c7;
+  --c-danger: #dc2626;
+  --c-danger-soft: #fee2e2;
+  --c-info: #0369a1;
+  --c-info-soft: #e0f2fe;
+  --c-focus: #2563eb;
 
-  /* ── Elevation shadows ── */
-  --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.09), 0 2px 8px rgba(0,0,0,0.04);
-  --shadow-xl: 0 16px 48px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06);
+  /* ── Elevation shadows (slate-tinted) ── */
+  --shadow-xs: 0 1px 2px rgba(15,23,42,0.04);
+  --shadow-sm: 0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04);
+  --shadow-md: 0 6px 16px rgba(15,23,42,0.07), 0 1px 4px rgba(15,23,42,0.04);
+  --shadow-lg: 0 10px 28px rgba(15,23,42,0.10), 0 2px 8px rgba(15,23,42,0.04);
+  --shadow-xl: 0 18px 48px rgba(15,23,42,0.14), 0 4px 16px rgba(15,23,42,0.06);
 
   /* ── Motion ── */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -73,58 +76,47 @@
   --radius-full: 9999px;
 }
 
-[data-accent='amber'] {
-  --c-accent: #f0a500;
-  --c-accent-hover: #d99500;
-  --c-accent-ink: #111318;
-  --c-accent-soft: #fcefcc;
-  --c-accent-soft-ink: #634400;
-}
-
 [data-theme='dark'] {
   color-scheme: dark;
 
-  --c-canvas: #0c0e11;
-  --c-surface: #161a1e;
-  --c-surface-2: #1e2228;
-  --c-surface-3: #272c33;
-  --c-line: #2a2f37;
-  --c-line-strong: #3d434c;
-  --c-ink: #f3f2ef;
-  --c-ink-2: #b8bbc2;
-  --c-ink-3: #8c919a;
-  --c-inverse: #f3f2ef;
-  --c-inverse-ink: #111318;
+  --c-canvas: #0b1120;
+  --c-surface: #111827;
+  --c-surface-2: #1e293b;
+  --c-surface-3: #273449;
+  --c-line: #1e293b;
+  --c-line-strong: #334155;
+  --c-ink: #f1f5f9;
+  --c-ink-2: #cbd5e1;
+  --c-ink-3: #94a3b8;
+  --c-inverse: #f1f5f9;
+  --c-inverse-ink: #0f172a;
 
-  --c-accent: #42c590;
-  --c-accent-hover: #5ad0a0;
-  --c-accent-ink: #051510;
-  --c-accent-soft: #122e22;
-  --c-accent-soft-ink: #9ce5c5;
+  --c-navy: #020617;
+  --c-navy-2: #0f172a;
+  --c-navy-ink: #f8fafc;
 
-  --c-success: #4ec882;
-  --c-success-soft: #14352a;
-  --c-warning: #f0b44c;
+  --c-accent: #3b82f6;
+  --c-accent-hover: #60a5fa;
+  --c-accent-2: #60a5fa;
+  --c-accent-ink: #ffffff;
+  --c-accent-soft: #172554;
+  --c-accent-soft-ink: #bfdbfe;
+
+  --c-success: #22c55e;
+  --c-success-soft: #052e16;
+  --c-warning: #fbbf24;
   --c-warning-soft: #3a2a0c;
-  --c-danger: #f47a70;
-  --c-danger-soft: #411718;
-  --c-info: #82b4f2;
-  --c-info-soft: #152842;
-  --c-focus: #82b4f2;
+  --c-danger: #f87171;
+  --c-danger-soft: #450a0a;
+  --c-info: #38bdf8;
+  --c-info-soft: #082f49;
+  --c-focus: #60a5fa;
 
   --shadow-xs: 0 1px 2px rgba(0,0,0,0.2);
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.35), 0 1px 4px rgba(0,0,0,0.2);
   --shadow-lg: 0 8px 24px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2);
   --shadow-xl: 0 16px 48px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.25);
-}
-
-[data-theme='dark'][data-accent='amber'] {
-  --c-accent: #f5b829;
-  --c-accent-hover: #ffc845;
-  --c-accent-ink: #111318;
-  --c-accent-soft: #3d2f0c;
-  --c-accent-soft-ink: #f8d27a;
 }
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
@@ -143,8 +135,12 @@
   --color-ink-3: var(--c-ink-3);
   --color-inverse: var(--c-inverse);
   --color-inverse-ink: var(--c-inverse-ink);
+  --color-navy: var(--c-navy);
+  --color-navy-2: var(--c-navy-2);
+  --color-navy-ink: var(--c-navy-ink);
   --color-accent: var(--c-accent);
   --color-accent-hover: var(--c-accent-hover);
+  --color-accent-2: var(--c-accent-2);
   --color-accent-ink: var(--c-accent-ink);
   --color-accent-soft: var(--c-accent-soft);
   --color-accent-soft-ink: var(--c-accent-soft-ink);
@@ -217,4 +213,9 @@
 @keyframes fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+@keyframes swipe-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import {
   Badge,
+  BrandLoader,
   Button,
   ChoiceGroup,
   DataTable,
@@ -33,22 +34,14 @@ import {
 } from '../ui/index.ts';
 import { Wordmark } from '../surfaces/Wordmark.tsx';
 
-type Accent = 'green' | 'amber';
 type Theme = 'light' | 'dark';
 
 export default function DesignPreview() {
   const [theme, setTheme] = useState<Theme>('light');
-  const [accent, setAccent] = useState<Accent>('green');
 
   useEffect(() => {
-    const root = document.documentElement;
-    root.dataset.theme = theme;
-    if (accent === 'amber') root.dataset.accent = 'amber';
-    else delete root.dataset.accent;
-    return () => {
-      delete root.dataset.accent;
-    };
-  }, [theme, accent]);
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   return (
     <div className="min-h-dvh">
@@ -56,16 +49,16 @@ export default function DesignPreview() {
         <Wordmark suffix="Design system" />
         <div className="ml-auto flex flex-wrap gap-3">
           <Segmented label="Theme" value={theme} onChange={setTheme} options={['light', 'dark']} />
-          <Segmented
-            label="Accent"
-            value={accent}
-            onChange={setAccent}
-            options={['green', 'amber']}
-          />
         </div>
       </header>
 
       <div className="mx-auto flex max-w-6xl flex-col gap-14 px-6 py-10">
+        <Section title="Loading" note="App start, session restore and screen loads.">
+          <div className="flex justify-center rounded-[var(--radius-xl)] border border-line bg-surface py-10">
+            <BrandLoader />
+          </div>
+        </Section>
+
         <Section title="Screens" note="Composed with example data — not wired to the API.">
           <div className="flex flex-wrap gap-8">
             <PhoneFrame caption="Booking · step 3">

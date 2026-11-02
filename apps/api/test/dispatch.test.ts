@@ -134,7 +134,7 @@ describe('rider onboarding', () => {
     ).toBe(true);
   });
 
-  it('motorcycles need a plate; customers who have booked cannot become riders', async () => {
+  it('motorcycles need a plate', async () => {
     const s = await signIn(t, '0944000002', nextIp());
     const noPlate = await call('POST', '/api/rider/apply', s.cookie, {
       fullName: 'Sara T',
@@ -142,15 +142,29 @@ describe('rider onboarding', () => {
     });
     expect(noPlate.statusCode).toBe(400);
     expect(noPlate.json().error.fields.plateNumber).toBeDefined();
+  });
 
+  it('a customer can become a rider with the same phone and still send parcels', async () => {
     const c = await customer('0911000003');
-    await book(c);
+    const before = await book(c);
     const res = await call('POST', '/api/rider/apply', c.cookie, {
       fullName: 'Hana B',
-      vehicleType: 'bicycle',
+      vehicleType: 'motorcycle',
+      plateNumber: '3-A12345',
     });
-    expect(res.statusCode).toBe(409);
-    expect(res.json().error.code).toBe('ROLE_CONFLICT');
+    expect(res.statusCode).toBe(201);
+    await t.database.db.update(riders).set({ approvalStatus: 'approved' }).where(eq(riders.userId, c.id));
+
+    // Customer side keeps working for the same session.
+    expect((await call('GET', '/api/deliveries', c.cookie)).statusCode).toBe(200);
+    const mine = await book(c);
+    expect(mine).not.toBe(before);
+
+    // Online at the pickup, the rider is still never offered their own bookings.
+    await call('POST', '/api/rider/status', c.cookie, { online: true });
+    await call('POST', '/api/rider/location', c.cookie, MESKEL);
+    await t.dispatcher.dispatch(mine);
+    expect((await openOffers()).filter((o) => o.riderId === c.id)).toHaveLength(0);
   });
 
   it('admin rules: reject and suspend need a reason; only admins decide', async () => {

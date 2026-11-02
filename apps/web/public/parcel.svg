@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="256" height="256" viewBox="0 0 256 256">
+<title>3D parcel package icon</title><desc>Editable vector artwork redrawn from Ethiopian Delivery App UI screenshot. Transparent background.</desc>
+
+<defs>
+ <linearGradient id="top" x1="0" y1="0" x2=".85" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#FFD79B"/><stop offset=".45" stop-color="#EDB568"/><stop offset="1" stop-color="#E3A359"/></linearGradient>
+ <linearGradient id="left" x1="0" y1="0" x2="1" y2=".2"><stop stop-color="#F3B978"/><stop offset="1" stop-color="#E19B48"/></linearGradient>
+ <linearGradient id="right" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#D18C40"/><stop offset=".55" stop-color="#BB792C"/><stop offset="1" stop-color="#CE8F49"/></linearGradient>
+ <linearGradient id="tape" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFF0C6"/><stop offset="1" stop-color="#E5C48D"/></linearGradient>
+</defs>
+<ellipse cx="127" cy="226" rx="93" ry="14" fill="#49321C" opacity=".10"/>
+<path d="M32 88 128 47 228 89 128 132Z" fill="url(#top)"/>
+<path d="M32 88 128 132 128 225 32 183Z" fill="url(#left)"/>
+<path d="M128 132 228 89 228 183 128 225Z" fill="url(#right)"/>
+<path d="M32 88 128 132 228 89" fill="none" stroke="#AD6A27" stroke-width="2" opacity=".4"/>
+<path d="M128 132 128 225" stroke="#A16831" stroke-width="2" opacity=".4"/>
+<path d="M35 90 35 180M42 95 42 183" fill="none" stroke="#FFE2AF" stroke-width="2" opacity=".26"/>
+<path d="M223 93 223 180" fill="none" stroke="#8E5924" stroke-width="3" opacity=".15"/>
+<!-- sealing tape crosses the top and folds over the left/front face -->
+<path d="M80 67 102 58 205 99 181 108Z" fill="url(#tape)" opacity=".92"/>
+<path d="M102 58 119 51 220 92 205 99Z" fill="#FFE7BC" opacity=".60"/>
+<path d="M99 115 121 125 121 172 115 166 110 169 104 160 99 159Z" fill="url(#tape)"/>
+<path d="M99 116 99 157 106 161 111 166 115 163 121 169 121 125" fill="none" stroke="#D3B17E" stroke-width="1.5" opacity=".65"/>
+<path d="M175 109 199 99 199 137 193 145 188 142 183 149 175 146Z" fill="#EBC38A" opacity=".4"/>
+<path d="M48 99 112 127M48 104 96 124" stroke="#FFE5B6" opacity=".28" stroke-width="2"/>
+<!-- three recycling/shipping symbols on front-right panel -->
+<g transform="translate(170 153) skewY(-12)" stroke="#754B2A" fill="none" opacity=".66" stroke-linecap="round" stroke-linejoin="round">
+<path d="M3 13 7 4 15 8M15 8 18 17 11 20M11 20 2 20 3 13" stroke-width="2.8"/>
+<path d="m4 12 4 1-1-4m8-2-1 4 4-1m-7 10 1-4-4 1" stroke-width="1.7"/>
+</g>
+<path d="M178 195v-12m10 7v-13m-15 4 5-6 5 5m0-1 5-7 5 6" fill="none" stroke="#80582D" stroke-width="2.4" opacity=".7" stroke-linecap="round"/>
+<path d="M33 183 128 225 228 183" fill="none" stroke="#B77A37" stroke-width="3" opacity=".4"/>
+
+</svg>

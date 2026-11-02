@@ -11,6 +11,7 @@ import {
   type PlaceSuggestion,
 } from '@dp/shared';
 import { api } from '../../lib/api.ts';
+import { getPosition, type GeoProblem } from '../../lib/geo.ts';
 import { MapView } from '../../map/MapView.tsx';
 import { Button, IconButton, Notice, Skeleton, Spinner, cn } from '../../ui/index.ts';
 
@@ -47,7 +48,7 @@ export function LocationPicker({
   const [mode, setMode] = useState<'search' | 'map'>('search');
   const [query, setQuery] = useState('');
   const [locating, setLocating] = useState(false);
-  const [geoError, setGeoError] = useState(false);
+  const [geoError, setGeoError] = useState<GeoProblem | null>(null);
   const [mapStart, setMapStart] = useState<LatLng>(initial ?? ADDIS_CENTER);
   // A named place (from search) keeps its name unless the user moves the pin away from it.
   const [named, setNamed] = useState<Place | null>(initial);
@@ -62,24 +63,16 @@ export function LocationPicker({
     staleTime: 10 * 60_000,
   });
 
-  const useMyLocation = () => {
-    setGeoError(false);
-    if (!navigator.geolocation) return setGeoError(true);
+  const locateMe = async () => {
+    setGeoError(null);
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocating(false);
-        // Open the map at the GPS fix so the user can fine-tune the pin to their gate.
-        setMapStart({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setNamed(null);
-        setMode('map');
-      },
-      () => {
-        setLocating(false);
-        setGeoError(true);
-      },
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
-    );
+    const r = await getPosition();
+    setLocating(false);
+    if (!r.ok) return setGeoError(r.problem);
+    // Open the map at the GPS fix so the user can fine-tune the pin to their gate.
+    setMapStart(r.point);
+    setNamed(null);
+    setMode('map');
   };
 
   if (mode === 'map') {
@@ -126,7 +119,7 @@ export function LocationPicker({
       <div className="mt-3 grid grid-cols-2 gap-2 px-4">
         <Button
           variant="secondary"
-          onClick={useMyLocation}
+          onClick={() => void locateMe()}
           loading={locating}
           icon={<LocateFixed className="size-4" aria-hidden />}
         >
@@ -146,7 +139,7 @@ export function LocationPicker({
       </div>
       {geoError && (
         <Notice tone="warning" className="mx-4 mt-3">
-          {t('booking.locationDenied')}
+          {t(`booking.geo.${geoError}`)}
         </Notice>
       )}
 
@@ -267,7 +260,13 @@ function PinOnMap({
       aria-label={title}
     >
       <div className="relative flex-1">
-        <MapView center={start} zoom={16} onMoveEnd={setCenter} className="absolute inset-0" />
+        <MapView
+          center={start}
+          zoom={16}
+          onMoveEnd={setCenter}
+          scrollZoom
+          className="absolute inset-0"
+        />
         {/* Fixed centre pin: the map moves underneath it. */}
         <div
           className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full"

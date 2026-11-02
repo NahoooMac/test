@@ -23,6 +23,8 @@ export interface YRoute extends YGeoObject {
 export interface YMap {
   getCenter(): YCoords;
   setCenter(center: YCoords, zoom?: number, options?: object): Promise<void>;
+  getZoom(): number;
+  setZoom(zoom: number, options?: object): Promise<void>;
   setBounds(bounds: [YCoords, YCoords], options?: object): Promise<void>;
   geoObjects: { add(o: YGeoObject): void; remove(o: YGeoObject): void };
   behaviors: { disable(names: string[]): void };
@@ -51,29 +53,41 @@ declare global {
 const KEY = import.meta.env.VITE_YANDEX_JS_KEY;
 let loading: Promise<Ymaps21 | null> | null = null;
 
+/** Why the map could not load, for the dev-only hint in MapView. */
+export let ymapsFailure: string | null = null;
+
 /** Resolves to null (never throws) when the key is missing or the API cannot load. */
 export function loadYmaps(): Promise<Ymaps21 | null> {
   if (loading) return loading;
   loading = new Promise((resolve) => {
-    if (!KEY) return resolve(null);
+    const fail = (why: string) => {
+      ymapsFailure = why;
+      console.error(`[map] ${why}`);
+      loading = null; // the next map that mounts tries again
+      resolve(null);
+    };
+    if (!KEY) return fail('VITE_YANDEX_JS_KEY is not set');
     const done = () =>
       window.ymaps!.ready(
         () => resolve(window.ymaps!),
-        () => resolve(null),
+        (e) => fail(`ymaps.ready failed: ${(e as Error)?.message ?? String(e)}`),
       );
     if (window.ymaps) return done();
+    document.querySelector('script[data-ymaps]')?.remove();
     const script = document.createElement('script');
     script.src = `https://api-maps.yandex.ru/2.1/?apikey=${encodeURIComponent(KEY)}&lang=en_US`;
     script.async = true;
-    const timer = setTimeout(() => resolve(null), 15_000);
+    script.dataset.ymaps = '';
+    // Slow phone connections can take a while for the first, large download.
+    const timer = setTimeout(() => fail('timed out loading api-maps.yandex.ru'), 30_000);
     script.onload = () => {
       clearTimeout(timer);
       if (window.ymaps) done();
-      else resolve(null);
+      else fail('script loaded but window.ymaps is missing');
     };
     script.onerror = () => {
       clearTimeout(timer);
-      resolve(null);
+      fail('could not download api-maps.yandex.ru (blocked or offline)');
     };
     document.head.appendChild(script);
   });

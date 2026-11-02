@@ -2,26 +2,24 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, Phone, Share2 } from 'lucide-react';
+import { ChevronLeft, Clock, MapPin, Share2 } from 'lucide-react';
 import { formatPhone, type Delivery } from '@dp/shared';
 import { api, ApiRequestError } from '../../lib/api.ts';
 import { pollEvery } from '../../lib/live.ts';
 import { MapView } from '../../map/MapView.tsx';
 import {
-  Badge,
   Button,
   ErrorState,
   IconButton,
   Notice,
   Panel,
-  PlateBadge,
   Skeleton,
-  StatusProgress,
   Timeline,
   useToast,
 } from '../../ui/index.ts';
-import { Row, RouteLines } from '../booking/BookingFlow.tsx';
-import { isOpen, STAGE_KEYS, STATUS_TONE, stageIndex } from './status.ts';
+import { Row } from '../booking/BookingFlow.tsx';
+import { isOpen, stageIndex } from './status.ts';
+import { TrackingSheet } from './TrackingSheet.tsx';
 
 export function DeliveryDetail() {
   const { t, i18n } = useTranslation();
@@ -92,7 +90,7 @@ export function DeliveryDetail() {
     <div className="pb-6">
       <div className="relative">
         <MapView
-          className="h-64"
+          className="h-[50vh] min-h-[300px]"
           markers={[
             { id: 'p', point: d.pickup, kind: 'pickup' },
             { id: 'd', point: d.dropoff, kind: 'dropoff' },
@@ -101,35 +99,49 @@ export function DeliveryDetail() {
               : []),
           ]}
           line={[d.pickup, d.dropoff]}
+          labels={{ pickup: t('booking.pickup'), dropoff: t('booking.dropoff') }}
           fit
-          interactive={false}
         />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-canvas to-transparent" />
         <div className="absolute top-4 left-4">{back}</div>
+        {isOpen(d.status) && (
+          <div className="pointer-events-none absolute top-4 right-4 flex flex-col items-end gap-2">
+            <div className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 text-xs font-bold shadow-[var(--shadow-md)] tabular">
+              <Clock className="size-3.5 text-accent" aria-hidden />
+              ~{d.etaMin} min
+            </div>
+            <div className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 text-xs font-bold shadow-[var(--shadow-md)] tabular">
+              <MapPin className="size-3.5 text-accent" aria-hidden />
+              {d.distanceKm.toFixed(1)} km
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="flex flex-col gap-5 px-4 pt-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-[26px] font-bold tracking-tight">
-              {t(`delivery.statuses.${d.status}`)}
-            </h1>
-            <p className="mt-0.5 text-sm text-ink-3 tabular">
-              #{d.code} · {d.distanceKm.toFixed(1)} km · ~{d.etaMin} min
-            </p>
-          </div>
-          <Badge tone={STATUS_TONE[d.status]} dot>
-            {t(`booking.vehicles.${d.vehicleType}`)}
-          </Badge>
-        </div>
+      <TrackingSheet
+        status={t(`delivery.statuses.${d.status}`)}
+        subtitle={`${t('delivery.tripMin', { min: d.etaMin })} · #${d.code}`}
+        vehicleType={d.vehicleType}
+        stage={stage}
+        rider={
+          d.rider
+            ? {
+                name: d.rider.name ?? formatPhone(d.rider.phone),
+                plate: d.rider.plate,
+                phone: d.rider.phone,
+              }
+            : null
+        }
+        pickup={{
+          title: d.pickup.address,
+          sub: `${d.pickup.contactName} · ${formatPhone(d.pickup.contactPhone)}`,
+        }}
+        dropoff={{
+          title: d.dropoff.address,
+          sub: `${d.dropoff.contactName} · ${formatPhone(d.dropoff.contactPhone)}`,
+        }}
+      />
 
-        {stage >= 0 && (
-          <StatusProgress
-            label={t('delivery.progress')}
-            stages={STAGE_KEYS.map((k) => t(`delivery.stages.${k}`))}
-            current={stage}
-          />
-        )}
+      <div className="flex flex-col gap-5 px-4 pt-5">
         {d.status === 'requested' && <Notice tone="info">{t('delivery.waiting')}</Notice>}
         {isOpen(d.status) && (
           <Button
@@ -152,32 +164,6 @@ export function DeliveryDetail() {
             {t('delivery.share')}
           </Button>
         )}
-
-        {d.rider && (
-          <Panel className="flex items-center gap-3 p-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs text-ink-3">{t('delivery.rider')}</p>
-              <p className="truncate font-semibold">{d.rider.name ?? formatPhone(d.rider.phone)}</p>
-            </div>
-            {d.rider.plate && <PlateBadge>{d.rider.plate}</PlateBadge>}
-            <a
-              href={`tel:${d.rider.phone}`}
-              className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 font-semibold text-accent-ink shadow-[var(--shadow-sm)] transition-all duration-[var(--dur-fast)] hover:bg-accent-hover active:scale-95"
-            >
-              <Phone className="size-4" aria-hidden />
-              {t('delivery.call')}
-            </a>
-          </Panel>
-        )}
-
-        <Panel className="p-4">
-          <RouteLines
-            from={d.pickup.address}
-            fromSub={`${d.pickup.contactName} · ${formatPhone(d.pickup.contactPhone)}`}
-            to={d.dropoff.address}
-            toSub={`${d.dropoff.contactName} · ${formatPhone(d.dropoff.contactPhone)}`}
-          />
-        </Panel>
 
         <Panel className="divide-y divide-line">
           <Row

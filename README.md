@@ -71,8 +71,13 @@ the terminal running `npm run dev` instead of sending an SMS, for example:
 To make an admin account, stop the dev server first (the local database is single-process), then run:
 
 ```bash
-npm run admin:grant -- 0911234567
+npm run admin:password -- 0911234567 ops
 ```
+
+It asks for a password (10+ characters), makes that phone's account an admin, and lets it sign in
+at `/admin/sign-in` with username `ops` and that password. Running it again changes the password
+and signs the admin out everywhere. Against a remote database, prefix it with
+`ALLOW_REMOTE_ADMIN_GRANT=true`.
 
 ## Production build
 

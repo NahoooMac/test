@@ -4,7 +4,8 @@ import { Navigate, useLocation, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import type { CurrentUser, UserRole } from '@dp/shared';
 import { api, ApiRequestError } from './api.ts';
-import { Button, ErrorState, Spinner } from '../ui/index.ts';
+import { clearPersisted } from './persist.ts';
+import { BrandLoader, Button, ErrorState } from '../ui/index.ts';
 
 export const sessionQueryKey = ['session', 'me'] as const;
 
@@ -44,7 +45,9 @@ export function RequireRole({
 
   if (session.isPending) return <FullScreenLoader />;
 
-  if (session.isError) {
+  // No connection but we know who this is (saved on the device): carry on with the saved session
+  // instead of an error screen. The server still checks the cookie on every request.
+  if (session.isError && !session.data) {
     const offline = session.error instanceof ApiRequestError && session.error.isNetwork;
     return (
       <div className="flex min-h-dvh items-center justify-center">
@@ -62,7 +65,10 @@ export function RequireRole({
     return <Navigate to={signInPath} replace state={{ from: location.pathname }} />;
   }
 
-  if (session.data.role !== role) {
+  // Riders can also send parcels, so the customer app admits them (same phone, both apps).
+  const allowed =
+    session.data.role === role || (role === 'customer' && session.data.role === 'rider');
+  if (!allowed) {
     return <WrongArea signInPath={signInPath} />;
   }
 
@@ -100,17 +106,18 @@ export function useSignOut(signInPath: string) {
     // Only after the server confirms: if logout failed, the cookie would still restore the session.
     onSuccess: () => {
       queryClient.clear();
+      clearPersisted();
       queryClient.setQueryData(sessionQueryKey, null);
       navigate(signInPath, { replace: true });
     },
   });
 }
 
+/** App start / session restore / lazy screens: the branded rider animation. */
 export function FullScreenLoader() {
-  const { t } = useTranslation();
   return (
-    <div className="flex min-h-dvh items-center justify-center text-ink-3">
-      <Spinner className="size-7" label={t('common.loading')} />
+    <div className="flex min-h-dvh items-center justify-center bg-surface px-6">
+      <BrandLoader />
     </div>
   );
 }

@@ -7,6 +7,7 @@ coverage/
 .env
 .env.*
 !.env.example
+ADMIN_LOGIN.txt
 
 # Local embedded Postgres data (PGlite)
 .data/

@@ -2,29 +2,20 @@ import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Phone } from 'lucide-react';
-import { formatPhone, subCityName, type PublicTracking } from '@dp/shared';
+import { Clock } from 'lucide-react';
+import { subCityName, type PublicTracking } from '@dp/shared';
 import { api, ApiRequestError } from '../../lib/api.ts';
 import { useTheme } from '../../lib/theme.ts';
 import { MapView } from '../../map/MapView.tsx';
-import {
-  Badge,
-  Button,
-  ErrorState,
-  Panel,
-  PlateBadge,
-  Skeleton,
-  StatusProgress,
-  Timeline,
-} from '../../ui/index.ts';
+import { Button, ErrorState, Panel, Skeleton, Timeline } from '../../ui/index.ts';
 import { LanguageToggle } from '../auth/LanguageToggle.tsx';
-import { Row, RouteLines } from '../booking/BookingFlow.tsx';
-import { isOpen, STAGE_KEYS, STATUS_TONE, stageIndex } from '../deliveries/status.ts';
+import { isOpen, stageIndex } from '../deliveries/status.ts';
+import { TrackingSheet } from '../deliveries/TrackingSheet.tsx';
 import { Wordmark } from '../../surfaces/Wordmark.tsx';
 
 /** Public page for the receiver: no sign-in, live updates, no sender/receiver phone numbers. */
 export default function TrackPage() {
-  useTheme('system');
+  useTheme('light');
   const { t, i18n } = useTranslation();
   const { code = '' } = useParams();
   const queryClient = useQueryClient();
@@ -101,7 +92,7 @@ export default function TrackPage() {
       {header}
       <div className="relative">
       <MapView
-        className="h-64"
+        className="h-[50vh] min-h-[300px]"
         markers={[
           { id: 'p', point: d.pickup, kind: 'pickup' },
           { id: 'd', point: d.dropoff, kind: 'dropoff' },
@@ -110,69 +101,30 @@ export default function TrackPage() {
             : []),
         ]}
         line={[d.pickup, d.dropoff]}
+        labels={{ pickup: t('booking.pickup'), dropoff: t('booking.dropoff') }}
         fit
-        interactive={false}
       />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-canvas to-transparent" />
-      </div>
-      <div className="flex flex-col gap-4 px-4 pt-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-[26px] font-bold tracking-tight">
-              {t(`delivery.statuses.${d.status}`)}
-            </h1>
-            <p className="mt-0.5 text-sm text-ink-3 tabular">#{d.code}</p>
-          </div>
-          <Badge tone={STATUS_TONE[d.status]} dot>
-            {t(`booking.vehicles.${d.vehicleType}`)}
-          </Badge>
-        </div>
-        {stage >= 0 && (
-          <StatusProgress
-            label={t('delivery.progress')}
-            stages={STAGE_KEYS.map((k) => t(`delivery.stages.${k}`))}
-            current={stage}
-          />
-        )}
-
-        {d.rider && (
-          <Panel className="flex items-center gap-3 p-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs text-ink-3">{t('delivery.rider')}</p>
-              <p className="truncate font-semibold">{d.rider.firstName ?? '—'}</p>
-            </div>
-            {d.rider.plate && <PlateBadge>{d.rider.plate}</PlateBadge>}
-            {d.rider.phone && (
-              <a
-                href={`tel:${d.rider.phone}`}
-                aria-label={`${t('delivery.call')} ${formatPhone(d.rider.phone)}`}
-                className="inline-flex h-11 items-center gap-2 rounded-[var(--radius-md)] bg-accent px-4 font-semibold text-accent-ink shadow-[var(--shadow-sm)] transition-all duration-[var(--dur-fast)] hover:bg-accent-hover active:scale-95"
-              >
-                <Phone className="size-4" aria-hidden />
-                {t('delivery.call')}
-              </a>
-            )}
-          </Panel>
-        )}
-
-        <Panel className="p-4">
-          <RouteLines
-            from={d.pickup.address}
-            fromSub={subCityName(d.pickup.subCity, i18n.language)}
-            to={d.dropoff.address}
-            toSub={subCityName(d.dropoff.subCity, i18n.language)}
-          />
-        </Panel>
-
         {isOpen(d.status) && (
-          <Panel>
-            <Row
-              label={t('delivery.eta')}
-              value={`${t(`booking.vehicles.${d.vehicleType}`)} · ~${d.etaMin} min`}
-            />
-          </Panel>
+          <div className="pointer-events-none absolute top-4 right-4 flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 text-xs font-bold shadow-[var(--shadow-md)] tabular">
+            <Clock className="size-3.5 text-accent" aria-hidden />
+            ~{d.etaMin} min
+          </div>
         )}
-
+      </div>
+      <TrackingSheet
+        status={t(`delivery.statuses.${d.status}`)}
+        subtitle={`${t('delivery.tripMin', { min: d.etaMin })} · #${d.code}`}
+        vehicleType={d.vehicleType}
+        stage={stage}
+        rider={
+          d.rider
+            ? { name: d.rider.firstName ?? '—', plate: d.rider.plate, phone: d.rider.phone ?? null }
+            : null
+        }
+        pickup={{ title: d.pickup.address, sub: subCityName(d.pickup.subCity, i18n.language) }}
+        dropoff={{ title: d.dropoff.address, sub: subCityName(d.dropoff.subCity, i18n.language) }}
+      />
+      <div className="flex flex-col gap-4 px-4 pt-5">
         <section>
           <h2 className="mb-3 text-base font-semibold">{t('delivery.history')}</h2>
           <Panel className="p-4">

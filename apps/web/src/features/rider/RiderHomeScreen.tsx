@@ -1,6 +1,16 @@
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Clock, MapPinOff, Radio, Wallet } from 'lucide-react';
+import {
+  Clock,
+  History,
+  MapPinOff,
+  Radio,
+  TrendingUp,
+  UserRound,
+  Wallet,
+} from 'lucide-react';
 import type { RiderProfile } from '@dp/shared';
 import { api } from '../../lib/api.ts';
 import {
@@ -10,9 +20,11 @@ import {
   Notice,
   Panel,
   PlateBadge,
+  Segmented,
   Skeleton,
   cn,
 } from '../../ui/index.ts';
+import { VehicleHero } from '../../map/VehicleHero.tsx';
 import { ActiveJob } from './ActiveJob.tsx';
 import { ApplyForm } from './ApplyForm.tsx';
 import { OfferCard } from './OfferCard.tsx';
@@ -23,6 +35,90 @@ import {
   useWakeLock,
   type GpsState,
 } from './hooks.ts';
+
+interface RiderJobRow {
+  id: string;
+  code: string;
+  status: string;
+  riderEarning: string;
+  cancellationFee: string;
+  updatedAt: string;
+}
+
+interface RiderLedger {
+  balance: string;
+  entries: Array<{
+    id: string;
+    type: 'commission' | 'settlement' | 'adjustment';
+    amount: string;
+    deliveryCode: string | null;
+    createdAt: string;
+  }>;
+}
+
+const DONE = ['delivered', 'returned'];
+
+function useRiderEarnings() {
+  const jobs = useQuery({
+    queryKey: ['rider', 'jobs'],
+    queryFn: () => api<RiderJobRow[]>('/rider/jobs'),
+  });
+  const ledger = useQuery({
+    queryKey: ['rider', 'ledger'],
+    queryFn: () => api<RiderLedger>('/rider/ledger'),
+  });
+  const today = new Date().toDateString();
+  const doneToday = (jobs.data ?? []).filter(
+    (j) => DONE.includes(j.status) && new Date(j.updatedAt).toDateString() === today,
+  );
+  const todayCents = doneToday.reduce((s, j) => s + Math.round(Number(j.riderEarning) * 100), 0);
+  return { jobs, ledger, todayCount: doneToday.length, todayTotal: (todayCents / 100).toFixed(2) };
+}
+
+function EarningsCard({ withOwed = true }: { withOwed?: boolean }) {
+  const { t } = useTranslation();
+  const { jobs, ledger, todayCount, todayTotal } = useRiderEarnings();
+  return (
+    <div className="relative overflow-hidden rounded-[var(--radius-2xl)] bg-navy p-5 text-navy-ink shadow-[var(--shadow-xl)]">
+      <div className="pointer-events-none absolute -top-14 -right-14 size-44 rounded-full bg-accent/30 blur-3xl" aria-hidden />
+      <div className="relative flex items-start justify-between">
+        <div>
+          <p className="text-sm text-navy-ink/70">{t('rider.earnings.todayEarnings')}</p>
+          {jobs.isPending ? (
+            <Skeleton className="mt-2 h-10 w-40 bg-white/10" />
+          ) : (
+            <p className="mt-1 text-[38px] leading-none font-bold tracking-tight tabular">
+              {todayTotal} <span className="text-lg font-semibold text-navy-ink/80">ETB</span>
+            </p>
+          )}
+        </div>
+        <span className="flex size-10 items-center justify-center rounded-[var(--radius-md)] bg-white/10 text-accent-2">
+          <TrendingUp className="size-5" aria-hidden />
+        </span>
+      </div>
+      <div
+        className={cn(
+          'relative mt-5 grid divide-x divide-white/10 border-t border-white/10 pt-4 text-center',
+          withOwed ? 'grid-cols-2' : 'grid-cols-1',
+        )}
+      >
+        <div>
+          <p className="text-xl font-bold tabular">{jobs.isPending ? '—' : todayCount}</p>
+          <p className="text-xs text-navy-ink/60">{t('rider.earnings.deliveries')}</p>
+        </div>
+        {withOwed && (
+          <div>
+            <p className="text-xl font-bold tabular">
+              {ledger.data ? ledger.data.balance : '—'}{' '}
+              <span className="text-xs font-semibold text-navy-ink/60">ETB</span>
+            </p>
+            <p className="text-xs text-navy-ink/60">{t('rider.earnings.owedShort')}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function RiderHomeScreen() {
   const { t } = useTranslation();
@@ -43,8 +139,9 @@ export function RiderHomeScreen() {
   if (home.isPending) {
     return (
       <div className="flex flex-col gap-3 p-4">
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-14 w-2/3" />
+        <Skeleton className="h-40 w-full rounded-[var(--radius-2xl)]" />
+        <Skeleton className="h-16 w-full" />
       </div>
     );
   }
@@ -77,18 +174,35 @@ export function RiderHomeScreen() {
 
   if (home.data.job) return <ActiveJob job={home.data.job} position={gps.position} />;
 
+  const initials = (profile.fullName ?? '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]!.toUpperCase())
+    .join('');
+
   return (
-    <div className="flex flex-col gap-5 p-4">
+    <div className="flex flex-col gap-5 px-4 pt-5 pb-6">
       {home.data.offer && <OfferCard offer={home.data.offer} />}
-      <div className="flex items-center justify-between pt-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm text-ink-3">{profile.fullName}</p>
-          <h1 className="text-[26px] font-bold tracking-tight">
-            {online ? t('rider.online') : t('rider.offline')}
-          </h1>
+
+      <header className="flex items-center gap-3">
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-2 to-accent text-[15px] font-bold text-white shadow-[var(--shadow-md)] ring-2 ring-surface">
+          {initials || <UserRound className="size-5" aria-hidden />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[17px] font-bold">{profile.fullName}</p>
+          <p className="flex items-center gap-1.5 text-sm text-ink-3">
+            <span
+              className={cn('size-2 rounded-full', online ? 'bg-success' : 'bg-line-strong')}
+              aria-hidden
+            />
+            {online ? t('rider.onlineShort') : t('rider.offlineShort')}
+          </p>
         </div>
         {profile.plateNumber && <PlateBadge>{profile.plateNumber}</PlateBadge>}
-      </div>
+      </header>
+
+      <EarningsCard />
 
       <button
         type="button"
@@ -97,21 +211,26 @@ export function RiderHomeScreen() {
         disabled={toggle.isPending}
         onClick={() => toggle.mutate(!online)}
         className={cn(
-          'flex h-20 items-center justify-between rounded-[var(--radius-xl)] px-6 text-left text-lg font-bold',
-          'shadow-[var(--shadow-md)] transition-all duration-[var(--dur-normal)] ease-[var(--ease-out)]',
-          'active:scale-[0.98] disabled:opacity-60',
-          online ? 'bg-accent text-accent-ink' : 'bg-ink text-canvas',
+          'flex h-16 items-center gap-3 rounded-[var(--radius-xl)] px-5 text-left text-base font-bold',
+          'transition-all duration-[var(--dur-normal)] ease-[var(--ease-out)] active:scale-[0.98] disabled:opacity-60',
+          online
+            ? 'bg-surface text-ink shadow-[var(--shadow-sm)] ring-1 ring-line'
+            : 'bg-accent text-white shadow-[0_10px_24px_-8px_rgba(37,99,235,0.7)]',
         )}
       >
-        <span>{online ? t('rider.goOffline') : t('rider.goOnline')}</span>
+        <span className="relative flex size-3">
+          {!online && <span className="absolute inset-0 animate-ping rounded-full bg-success/70" aria-hidden />}
+          <span className={cn('relative size-3 rounded-full', online ? 'bg-danger' : 'bg-success ring-2 ring-white/60')} />
+        </span>
+        <span className="flex-1">{online ? t('rider.goOffline') : t('rider.goOnline')}</span>
         <span
           aria-hidden
           className={cn(
-            'flex h-9 w-16 items-center rounded-full p-1 transition-all duration-[var(--dur-normal)]',
-            online ? 'justify-end bg-black/20' : 'justify-start bg-white/20',
+            'flex h-8 w-14 items-center rounded-full p-1 transition-all duration-[var(--dur-normal)]',
+            online ? 'justify-end bg-success' : 'justify-start bg-white/25',
           )}
         >
-          <span className="size-7 rounded-full bg-white shadow-[var(--shadow-sm)] transition-all duration-[var(--dur-normal)] ease-[var(--ease-spring)]" />
+          <span className="size-6 rounded-full bg-white shadow-[var(--shadow-sm)]" />
         </span>
       </button>
       {toggle.isError && <Notice tone="danger">{toggle.error.message}</Notice>}
@@ -119,24 +238,58 @@ export function RiderHomeScreen() {
       {online ? (
         <>
           <GpsStatus state={gps.state} />
-          <Panel>
-            <EmptyState
-              icon={<Radio className="size-6" aria-hidden />}
-              title={t('rider.online')}
-              body={t('rider.waiting')}
-            />
+          <Panel className="relative flex items-center gap-4 overflow-hidden p-4">
+            <div className="relative shrink-0">
+              <span className="absolute inset-0 animate-ping rounded-full bg-accent/25" aria-hidden />
+              <span className="relative flex size-12 items-center justify-center rounded-full bg-accent-soft">
+                <Radio className="size-6 text-accent" aria-hidden />
+              </span>
+            </div>
+            <p className="min-w-0 flex-1 text-[15px] font-semibold">{t('rider.waiting')}</p>
+            <VehicleHero kind={profile.vehicleType} rider={false} width={140} height={100} className="w-20 shrink-0" />
           </Panel>
         </>
       ) : (
-        <Panel>
-          <EmptyState
-            icon={<Wallet className="size-6" aria-hidden />}
-            title={t('rider.offline')}
-            body={t('rider.offlineBody')}
-          />
+        <Panel className="flex items-center gap-4 p-4">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-surface-2">
+            <Wallet className="size-6 text-ink-3" aria-hidden />
+          </span>
+          <p className="min-w-0 flex-1 text-sm text-ink-2">{t('rider.offlineBody')}</p>
+          <VehicleHero kind={profile.vehicleType} rider={false} width={140} height={100} className="w-20 shrink-0 opacity-80" />
         </Panel>
       )}
+
+      <section>
+        <h2 className="mb-3 text-lg font-bold tracking-tight">{t('rider.quickActions')}</h2>
+        <div className="grid grid-cols-3 gap-3">
+          <QuickAction to="/rider/earnings" icon={Wallet} label={t('nav.earnings')} />
+          <QuickAction to="/rider/earnings#history" icon={History} label={t('rider.historyShort')} />
+          <QuickAction to="/rider/account" icon={UserRound} label={t('rider.profile')} />
+        </div>
+      </section>
     </div>
+  );
+}
+
+function QuickAction({
+  to,
+  icon: Icon,
+  label,
+}: {
+  to: string;
+  icon: typeof Wallet;
+  label: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="flex flex-col items-center gap-2 rounded-[var(--radius-lg)] bg-surface py-4 text-sm font-medium shadow-[var(--shadow-sm)] ring-1 ring-line/70 transition-all duration-[var(--dur-fast)] hover:shadow-[var(--shadow-md)] active:scale-[0.97]"
+    >
+      <span className="flex size-10 items-center justify-center rounded-full bg-accent-soft text-accent">
+        <Icon className="size-5" aria-hidden />
+      </span>
+      {label}
+    </Link>
   );
 }
 
@@ -162,51 +315,33 @@ function GpsStatus({ state }: { state: GpsState }) {
   return <p className="text-sm text-ink-3">{t('rider.gps.waiting')}</p>;
 }
 
+type JobFilter = 'all' | 'completed' | 'cancelled';
+
 export function RiderEarnings() {
   const { t, i18n } = useTranslation();
-  const jobs = useQuery({
-    queryKey: ['rider', 'jobs'],
-    queryFn: () =>
-      api<
-        Array<{
-          id: string;
-          code: string;
-          status: string;
-          riderEarning: string;
-          cancellationFee: string;
-          updatedAt: string;
-        }>
-      >('/rider/jobs'),
-  });
-  const today = new Date().toDateString();
-  const ledger = useQuery({
-    queryKey: ['rider', 'ledger'],
-    queryFn: () =>
-      api<{
-        balance: string;
-        entries: Array<{
-          id: string;
-          type: 'commission' | 'settlement' | 'adjustment';
-          amount: string;
-          deliveryCode: string | null;
-          createdAt: string;
-        }>;
-      }>('/rider/ledger'),
-  });
-  const done = jobs.data?.filter((j) => ['delivered', 'returned'].includes(j.status)) ?? [];
-  const todaySum = done
-    .filter((j) => new Date(j.updatedAt).toDateString() === today)
-    .reduce((s, j) => s + Math.round(Number(j.riderEarning) * 100), 0);
+  const { jobs, ledger } = useRiderEarnings();
+  const [filter, setFilter] = useState<JobFilter>('all');
+  const list = jobs.data ?? [];
+  const shown = list.filter((j) =>
+    filter === 'completed'
+      ? DONE.includes(j.status)
+      : filter === 'cancelled'
+        ? j.status === 'cancelled'
+        : true,
+  );
+  const when = (iso: string) =>
+    new Date(iso).toLocaleString(i18n.language === 'am' ? 'am-ET' : 'en-GB', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
   return (
-    <div className="flex flex-col gap-5 p-4">
-      <h1 className="pt-3 text-[26px] font-bold tracking-tight">{t('rider.earnings.title')}</h1>
-      <div className="rounded-[var(--radius-xl)] bg-accent-soft p-6 text-accent-soft-ink shadow-[var(--shadow-sm)]">
-        <p className="text-xs font-semibold tracking-wide uppercase opacity-70">{t('rider.earnings.today')}</p>
-        <p className="mt-1 text-[40px] font-bold tracking-tight tabular">
-          {(todaySum / 100).toFixed(2)} <span className="text-base font-semibold">ETB</span>
-        </p>
-      </div>
+    <div className="flex flex-col gap-5 px-4 pt-6 pb-6">
+      <h1 className="text-center text-xl font-bold tracking-tight">{t('rider.earnings.title')}</h1>
+      <EarningsCard withOwed={false} />
+
       {ledger.data && (
         <Panel className="p-4">
           <div className="flex items-baseline justify-between gap-3">
@@ -216,7 +351,7 @@ export function RiderEarnings() {
           <p className="mt-1 text-sm text-ink-3">{t('rider.earnings.owedHint')}</p>
           {ledger.data.entries.length > 0 && (
             <details className="mt-3">
-              <summary className="cursor-pointer text-sm font-semibold text-ink-2">
+              <summary className="cursor-pointer text-sm font-semibold text-accent">
                 {t('rider.earnings.history')}
               </summary>
               <ul className="mt-2 divide-y divide-line text-sm">
@@ -234,29 +369,64 @@ export function RiderEarnings() {
           )}
         </Panel>
       )}
-      {jobs.isPending && <Skeleton className="h-24 w-full" />}
-      {jobs.data && jobs.data.length === 0 && (
-        <EmptyState title={t('rider.earnings.title')} body={t('rider.earnings.empty')} />
-      )}
-      {jobs.data && jobs.data.length > 0 && (
-        <Panel className="divide-y divide-line">
-          {jobs.data.map((j) => (
-            <div key={j.id} className="flex items-center justify-between px-4 py-3">
-              <div>
-                <p className="font-semibold tabular">#{j.code}</p>
-                <p className="text-sm text-ink-3">
-                  {t(`delivery.statuses.${j.status}`)} ·{' '}
-                  {new Date(j.updatedAt).toLocaleDateString(
-                    i18n.language === 'am' ? 'am-ET' : 'en-GB',
-                    { day: 'numeric', month: 'short' },
-                  )}
-                </p>
-              </div>
-              <span className="font-semibold tabular">{j.riderEarning} ETB</span>
-            </div>
-          ))}
-        </Panel>
-      )}
+
+      <section id="history" className="flex scroll-mt-4 flex-col gap-3">
+        <h2 className="text-lg font-bold tracking-tight">{t('rider.earnings.jobHistory')}</h2>
+        {list.length > 0 && (
+          <Segmented
+            label={t('rider.earnings.jobHistory')}
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: 'all', label: t('rider.earnings.filters.all') },
+              { value: 'completed', label: t('rider.earnings.filters.completed') },
+              { value: 'cancelled', label: t('rider.earnings.filters.cancelled') },
+            ]}
+          />
+        )}
+        {jobs.isPending && <Skeleton className="h-24 w-full" />}
+        {jobs.data && jobs.data.length === 0 && (
+          <EmptyState title={t('rider.earnings.title')} body={t('rider.earnings.empty')} />
+        )}
+        {shown.length > 0 && (
+          <Panel className="divide-y divide-line">
+            {shown.map((j) => {
+              const done = DONE.includes(j.status);
+              const fee = j.status === 'cancelled' && j.cancellationFee !== '0.00';
+              const amount = done ? j.riderEarning : fee ? j.cancellationFee : null;
+              return (
+                <div key={j.id} className="flex items-center gap-3 px-4 py-3.5">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'size-2.5 shrink-0 rounded-full ring-4',
+                      done
+                        ? 'bg-success ring-success/15'
+                        : j.status === 'cancelled' || j.status === 'failed'
+                          ? 'bg-danger ring-danger/15'
+                          : 'bg-accent ring-accent/15',
+                    )}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">{t(`delivery.statuses.${j.status}`)}</p>
+                    <p className="text-sm text-ink-3 tabular">
+                      #{j.code} · {when(j.updatedAt)}
+                    </p>
+                  </div>
+                  <span
+                    className={cn('font-bold tabular', amount ? 'text-success' : 'text-ink-3')}
+                  >
+                    {amount ? `+${amount} ETB` : '—'}
+                  </span>
+                </div>
+              );
+            })}
+          </Panel>
+        )}
+        {list.length > 0 && shown.length === 0 && (
+          <p className="py-6 text-center text-sm text-ink-3">{t('delivery.filterEmpty')}</p>
+        )}
+      </section>
     </div>
   );
 }

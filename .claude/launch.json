@@ -2,22 +2,53 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "dev-lan",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:lan"],
+      "port": 5173,
+      "autoPort": true
+    },
+    {
+      "name": "dev-lan-local",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:lan:local"],
+      "port": 5173,
+      "autoPort": true
+    },
+    {
+      "name": "dev-lan-https",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:lan:https"],
+      "port": 5173,
+      "autoPort": true
+    },
+    {
       "name": "dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 5173
+      "port": 5173,
+      "autoPort": true
     },
     {
       "name": "dev-local",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:local"],
-      "port": 5173
+      "port": 5173,
+      "autoPort": true
     },
     {
       "name": "dev-demo",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:demo"],
-      "port": 5173
+      "port": 5173,
+      "autoPort": true
+    },
+    {
+      "name": "web-only",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "-w", "@dp/web"],
+      "port": 5180,
+      "autoPort": true
     },
     {
       "name": "prod-preview",

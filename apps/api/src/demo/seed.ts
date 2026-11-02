@@ -1,4 +1,3 @@
-import { eq, sql } from 'drizzle-orm';
 import type { Db } from '../db/client.ts';
 import { riders, users } from '../db/schema.ts';
 import { DEMO_PHONES } from './accounts.ts';

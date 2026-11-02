@@ -12,7 +12,8 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --disable-warning=ExperimentalWarning src/db/migrate-cli.ts",
-    "admin:grant": "node --disable-warning=ExperimentalWarning src/db/grant-admin-cli.ts",
+    "admin:password": "node --disable-warning=ExperimentalWarning src/db/admin-password-cli.ts",
+    "admin:grant":"node --disable-warning=ExperimentalWarning src/db/grant-admin-cli.ts",
     "sms:check": "node --disable-warning=ExperimentalWarning src/integrations/sms/check-cli.ts",
     "preview": "node --disable-warning=ExperimentalWarning src/server.ts --local-db --serve-web"
   },
