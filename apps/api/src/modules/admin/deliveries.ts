@@ -25,6 +25,7 @@ import type { DeliveryService } from '../deliveries/service.ts';
 import type { Dispatcher } from '../dispatch/dispatcher.ts';
 import type { Realtime } from '../realtime/hub.ts';
 import { audit, auditFor } from './audit.ts';
+import { assertRiderCanTakeJob } from '../riders/eligibility.ts';
 
 const customers = alias(users, 'customers');
 const riderUsers = alias(users, 'rider_users');
@@ -196,6 +197,7 @@ export async function adminDeliveryRoutes(
         status: o.status,
         round: o.round,
         toPickupKm: o.toPickupKm,
+        score: o.score,
         offeredAt: o.offeredAt.toISOString(),
         respondedAt: o.respondedAt?.toISOString() ?? null,
       })),
@@ -229,6 +231,12 @@ export async function adminDeliveryRoutes(
     const now = clock.now();
     try {
       await db.transaction(async (tx) => {
+        // An admin may assign outside the rider's chosen areas (the authorised override), but
+        // every other rule still applies, including the wallet.
+        const [job] = await tx.select().from(deliveries).where(eq(deliveries.id, req.params.id));
+        if (job && job.status === 'requested' && job.vehicleType === rider.vehicleType) {
+          await assertRiderCanTakeJob(tx, riderId, job, { overrideArea: true });
+        }
         const [d] = await tx
           .update(deliveries)
           .set({
@@ -320,15 +328,21 @@ export async function adminDeliveryRoutes(
 
   app.post<{ Params: { id: string } }>('/admin/deliveries/:id/cancel', async (req, reply) => {
     const { user: admin } = await auth.require(req, reply, 'admin');
-    const { reason, chargeFee } = parseInput(adminCancelSchema, req.body);
+    const { reason, chargeFee, riderResponsible } = parseInput(adminCancelSchema, req.body);
     if (!isUuid(req.params.id)) throw notFound();
-    await deliveryService.cancelByAdmin(admin.id, req.params.id, reason, chargeFee);
+    await deliveryService.cancelByAdmin(
+      admin.id,
+      req.params.id,
+      reason,
+      chargeFee,
+      riderResponsible,
+    );
     await audit(
       db,
       admin.id,
       'delivery.cancel',
       { type: 'delivery', id: req.params.id },
-      { reason, chargeFee },
+      { reason, chargeFee, riderResponsible },
     );
     return reply.status(204).send();
   });

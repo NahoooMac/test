@@ -28,6 +28,11 @@ import { adminFinanceRoutes } from './modules/admin/finance.ts';
 import { adminUserRoutes } from './modules/admin/users.ts';
 import { KycService } from './modules/kyc/service.ts';
 import { kycRoutes } from './modules/kyc/routes.ts';
+import { riderFeatureRoutes } from './modules/riders/featureRoutes.ts';
+import { ratingRoutes } from './modules/ratings/routes.ts';
+import { adminRiderFeatureRoutes } from './modules/admin/riderFeatures.ts';
+import { purgeOldRoutes } from './modules/history/service.ts';
+import { getSettings } from './modules/platform/settings.ts';
 
 export interface AppDeps {
   config: Config;
@@ -90,13 +95,20 @@ export async function buildApp({
   const kyc = new KycService(db, config, clock, hub);
   const geoProvider = geo ?? createGeoProvider(config);
 
-  // Delete identity photos past their retention period, hourly (not in tests: they call it).
+  // Delete identity photos and route points past their retention period, hourly (not in tests: they call it).
   if (config.NODE_ENV !== 'test') {
+    // Recorded GPS routes are kept for the configured number of days, then deleted.
     const purge = () =>
-      kyc
-        .purgeExpired()
-        .then((n) => n > 0 && app.log.info({ removed: n }, 'expired KYC photos deleted'))
-        .catch((err) => app.log.error({ err }, 'KYC purge failed'));
+      Promise.all([
+        kyc
+          .purgeExpired()
+          .then((n) => n > 0 && app.log.info({ removed: n }, 'expired KYC photos deleted'))
+          .catch((err) => app.log.error({ err }, 'KYC purge failed')),
+        getSettings(db)
+          .then((s) => purgeOldRoutes(db, s.routeRetentionDays, clock.now()))
+          .then((n) => n > 0 && app.log.info({ removed: n }, 'old route points deleted'))
+          .catch((err) => app.log.error({ err }, 'route purge failed')),
+      ]);
     const timer = setInterval(purge, 3_600_000);
     timer.unref();
     app.addHook('onReady', async () => void purge());
@@ -120,6 +132,8 @@ export async function buildApp({
       await api.register(geoRoutes, { db, clock, auth, geo: geoProvider });
       // Before riderRoutes: its catch-all for unknown /rider/* paths must not shadow these.
       await api.register(kycRoutes, { db, clock, auth, kyc });
+      await api.register(riderFeatureRoutes, { db, clock, auth, riders });
+      await api.register(ratingRoutes, { db, clock, auth });
       await api.register(riderRoutes, { db, clock, auth, riders, dispatcher });
       await api.register(adminRiderRoutes, { db, clock, auth, realtime: hub });
       await api.register(adminOpsRoutes, { db, clock, auth });
@@ -131,6 +145,7 @@ export async function buildApp({
         dispatcher,
         realtime: hub,
       });
+      await api.register(adminRiderFeatureRoutes, { db, clock, auth });
       await api.register(adminFinanceRoutes, { db, clock, auth, payments, realtime: hub });
       await api.register(adminUserRoutes, {
         db,

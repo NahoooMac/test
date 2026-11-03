@@ -6,4 +6,5 @@ export * from './geo.ts';
 export * from './delivery.ts';
 export * from './rider.ts';
 export * from './kyc.ts';
+export * from './riderFeatures.ts';
 export * from './finance.ts';

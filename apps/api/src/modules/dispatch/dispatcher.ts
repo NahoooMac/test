@@ -7,9 +7,17 @@
 // So several API instances (or overlapping ticks) can run this safely.
 import { and, asc, eq, inArray, isNull, lt, ne, notExists, sql } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
-import { ACTIVE_RIDER_STATUSES } from '@dp/shared';
+import { ACTIVE_RIDER_STATUSES, pickupArea } from '@dp/shared';
 import type { Db } from '../../db/client.ts';
-import { deliveries, deliveryOffers, riders } from '../../db/schema.ts';
+import {
+  deliveries,
+  deliveryOffers,
+  riderLedger,
+  riderServiceAreas,
+  riders,
+} from '../../db/schema.ts';
+import { getSettings } from '../platform/settings.ts';
+import { loadSignals, scoreRider } from './matching.ts';
 import { addSeconds, type Clock } from '../../shared/clock.ts';
 import { isUniqueViolation, violatedConstraint } from '../../shared/errors.ts';
 import { noopRealtime, type Realtime } from '../realtime/hub.ts';
@@ -64,10 +72,17 @@ export class Dispatcher {
         lng: deliveries.pickupLng,
         round: deliveries.dispatchRound,
         customerId: deliveries.customerId,
+        subCity: deliveries.pickupSubCity,
+        commission: deliveries.commissionAmount,
       })
       .from(deliveries)
       .where(eq(deliveries.id, deliveryId));
     if (!d || d.status !== 'requested') return 'not_requested';
+
+    const settings = await getSettings(this.db);
+    const area = pickupArea(d.subCity, { lat: d.lat, lng: d.lng });
+    // The rider's ledger sum (+ owed); the wallet balance is its negative.
+    const balance = sql`(select coalesce(sum(l.amount), 0) from ${riderLedger} l where l.rider_id = "riders"."user_id")`;
 
     // Equirectangular distance in km: accurate to well under 1% across a city.
     const km = sql<number>`111.32 * sqrt(power(${riders.currentLat} - ${d.lat}, 2) + power(cos(radians(${d.lat})) * (${riders.currentLng} - ${d.lng}), 2))`;
@@ -81,6 +96,12 @@ export class Dispatcher {
           eq(riders.vehicleType, d.vehicleType),
           // A rider who also sends parcels is never offered their own delivery.
           ne(riders.userId, d.customerId),
+          // Service area: the pickup's area, unless the rider hasn't chosen any areas yet.
+          sql`(not exists (select 1 from ${riderServiceAreas} a where a.rider_id = "riders"."user_id")
+               or exists (select 1 from ${riderServiceAreas} a where a.rider_id = "riders"."user_id" and a.sub_city = ${area}))`,
+          // Wallet: at least the minimum, and room for this job's commission above the debt limit.
+          sql`(-${balance}) >= ${settings.walletMinBalance}::numeric
+              and (-${balance}) - ${d.commission}::numeric >= -${settings.walletDebtLimit}::numeric`,
           sql`${riders.locationUpdatedAt} > ${addSeconds(now, -this.opts.locationFreshSec).toISOString()}::timestamptz`,
           sql`${km} <= ${this.opts.maxRadiusKm}`,
           notExists(
@@ -109,9 +130,29 @@ export class Dispatcher {
         ),
       )
       .orderBy(asc(km))
-      .limit(5);
+      .limit(20);
 
-    for (const c of candidates) {
+    // Rank the eligible riders: distance, home, rating, points, fairness, reliability.
+    const signals = await loadSignals(
+      this.db,
+      candidates.map((c) => c.riderId),
+      now,
+    );
+    const ranked = candidates
+      .map((c) => ({
+        ...c,
+        score: scoreRider(
+          signals.get(c.riderId)!,
+          c.km,
+          { lat: d.lat, lng: d.lng },
+          settings.matching,
+          now,
+        ),
+      }))
+      .sort((a, b) => b.score.total - a.score.total)
+      .slice(0, 5);
+
+    for (const c of ranked) {
       try {
         await this.db.insert(deliveryOffers).values({
           deliveryId,
@@ -120,8 +161,12 @@ export class Dispatcher {
           round: d.round,
           offeredAt: now,
           expiresAt: addSeconds(now, this.opts.offerTtlSec),
+          score: { total: c.score.total, ...c.score.parts },
         });
-        this.log.info({ deliveryId, riderId: c.riderId, km: c.km.toFixed(2) }, 'offer sent');
+        this.log.info(
+          { deliveryId, riderId: c.riderId, km: c.km.toFixed(2), score: c.score.total },
+          'offer sent',
+        );
         this.realtime.notifyUser(c.riderId, 'offer', { deliveryId });
         this.realtime.publish({ type: 'ops', data: { deliveryId } }, { admins: true });
         return 'offered';

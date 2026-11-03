@@ -64,6 +64,13 @@
       "when": 1793627175717,
       "tag": "0008_rider_kyc",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793689063174,
+      "tag": "0009_rider_features",
+      "breakpoints": true
     }
   ]
 }

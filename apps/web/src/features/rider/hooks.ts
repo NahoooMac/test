@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { RiderHome } from '@dp/shared';
 import { api } from '../../lib/api.ts';
 import { pollEvery } from '../../lib/live.ts';
+import { flushRoute, recordFix } from './routeRecorder.ts';
 
 export const riderHomeKey = ['rider', 'home'] as const;
 
@@ -25,13 +26,20 @@ export function useRiderHome(enabled = true) {
 
 export type GpsState = 'off' | 'waiting' | 'ok' | 'blocked' | 'unsupported';
 
-/** Shares the rider's position while `active`: first fix immediately, then at most every 10 s. */
-export function useLocationSharing(active: boolean) {
+/**
+ * Shares the rider's position while `active`: first fix immediately, then at most every 10 s.
+ * During a job (`jobId`), every real fix is also queued for the job's recorded route.
+ */
+export function useLocationSharing(active: boolean, jobId?: string | null) {
   const [state, setState] = useState<GpsState>('off');
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null);
   // Direction of travel in radians (0 = north), when the device reports it (only while moving).
   const [heading, setHeading] = useState<number | undefined>(undefined);
   const lastSent = useRef(0);
+  const job = useRef(jobId);
+  job.current = jobId;
+  // Upload what was recorded as soon as a job starts or ends, not only on the timer.
+  useEffect(() => void flushRoute(), [jobId]);
 
   useEffect(() => {
     if (!active) {
@@ -50,6 +58,7 @@ export function useLocationSharing(active: boolean) {
         const deg = pos.coords.heading;
         if (deg != null && !Number.isNaN(deg)) setHeading((deg * Math.PI) / 180);
         setState('ok');
+        if (job.current) recordFix(job.current, p, pos.coords.accuracy, pos.timestamp);
         const now = Date.now();
         if (now - lastSent.current >= 10_000) {
           lastSent.current = now;

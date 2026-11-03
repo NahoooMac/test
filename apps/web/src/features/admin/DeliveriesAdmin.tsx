@@ -589,9 +589,10 @@ function CancelPanel({
   const toast = useToast();
   const [reason, setReason] = useState('');
   const [chargeFee, setChargeFee] = useState(false);
+  const [riderResponsible, setRiderResponsible] = useState(false);
   const cancel = useMutation({
     mutationFn: () =>
-      api(`/admin/deliveries/${id}/cancel`, { method: 'POST', body: { reason, chargeFee } }),
+      api(`/admin/deliveries/${id}/cancel`, { method: 'POST', body: { reason, chargeFee, riderResponsible } }),
     onSuccess: () => {
       toast('Delivery cancelled.', 'success');
       onDone();
@@ -621,6 +622,15 @@ function CancelPanel({
           rider)
         </label>
       )}
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={riderResponsible}
+          onChange={(e) => setRiderResponsible(e.target.checked)}
+          className="size-4"
+        />
+        The assigned rider caused this (no-show, misconduct) — deduct 3 points
+      </label>
       {cancel.isError && !fieldError && <Notice tone="danger">{cancel.error.message}</Notice>}
       <div>
         <Button

@@ -74,7 +74,7 @@ export function ReconciliationAdmin() {
         <div>
           <h1 className="text-[26px] font-bold tracking-tight">Reconciliation</h1>
           <p className="text-[15px] text-ink-2">
-            Customers pay riders directly. Riders owe the platform its commission until they settle.
+            Customers pay riders directly. Commission comes off each rider's prepaid wallet on delivery; a negative outstanding amount is credit the rider holds.
           </p>
         </div>
         <a

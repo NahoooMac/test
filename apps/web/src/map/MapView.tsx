@@ -62,6 +62,8 @@ export function MapView({
   markers = [],
   line,
   path,
+  trail,
+  circle,
   fit = false,
   interactive = true,
   scrollZoom = false,
@@ -79,6 +81,10 @@ export function MapView({
   line?: [LatLng, LatLng] | null;
   /** A ready-made route to draw as-is (e.g. in-app navigation). */
   path?: LatLng[] | null;
+  /** The route actually travelled (recorded GPS). Drawn solid; `line` is then drawn dashed. */
+  trail?: LatLng[] | null;
+  /** A radius around a point, e.g. a rider's preferred home area. */
+  circle?: { center: LatLng; radiusKm: number } | null;
   /** Zoom to show all markers (when the stops change; a moving rider does not re-zoom). */
   fit?: boolean;
   /** Drag and pinch-zoom. */
@@ -154,7 +160,12 @@ export function MapView({
 
   // Markers and route line.
   const overlayKey =
-    JSON.stringify(markers) + JSON.stringify(line) + JSON.stringify(path) + JSON.stringify(labels);
+    JSON.stringify(markers) +
+    JSON.stringify(line) +
+    JSON.stringify(path) +
+    JSON.stringify(trail) +
+    JSON.stringify(circle) +
+    JSON.stringify(labels);
   // Re-fit only when the stops change, so a live rider update never undoes the user's zoom.
   const fitKey = JSON.stringify(
     markers.map((m) => (m.kind === 'rider' ? m.id : [m.id, m.point.lat, m.point.lng])),
@@ -168,16 +179,35 @@ export function MapView({
     for (const o of overlays.current) a.map.geoObjects.remove(o);
     overlays.current = [];
 
+    // With a recorded trail, the planned route becomes a thin dashed reference line.
+    const planned = !!trail && trail.length > 1;
     const addRoute = (coords: YCoords[]) => {
       if (cancelled) return;
-      const polyline = new a.ymaps.Polyline(coords, {}, {
+      const polyline = new a.ymaps.Polyline(coords, {}, planned
+        ? { strokeColor: '#64748b', strokeWidth: 3, strokeOpacity: 0.8, strokeStyle: 'dash' }
+        : { strokeColor: '#2563eb', strokeWidth: 5, strokeOpacity: 0.95 });
+      a.map.geoObjects.add(polyline);
+      overlays.current.push(polyline);
+    };
+    if (planned) {
+      const actual = new a.ymaps.Polyline(trail.map(toCoords), {}, {
         strokeColor: '#2563eb',
         strokeWidth: 5,
         strokeOpacity: 0.95,
       });
-      a.map.geoObjects.add(polyline);
-      overlays.current.push(polyline);
-    };
+      a.map.geoObjects.add(actual);
+      overlays.current.push(actual);
+    }
+    if (circle && a.ymaps.Circle) {
+      const c = new a.ymaps.Circle([toCoords(circle.center), circle.radiusKm * 1000], {}, {
+        fillColor: '#2563eb22',
+        strokeColor: '#2563eb',
+        strokeOpacity: 0.7,
+        strokeWidth: 2,
+      });
+      a.map.geoObjects.add(c);
+      overlays.current.push(c);
+    }
 
     if (path && path.length > 1) {
       addRoute(path.map(toCoords));
@@ -255,10 +285,11 @@ export function MapView({
         placemarks.delete(id);
       }
     }
-    if (fit && markers.length > 1 && fittedKey.current !== fitKey) {
+    const fitPoints = [...markers.map((m) => m.point), ...(trail ?? [])];
+    if (fit && fitPoints.length > 1 && fittedKey.current !== fitKey) {
       fittedKey.current = fitKey;
-      const lats = markers.map((m) => m.point.lat);
-      const lngs = markers.map((m) => m.point.lng);
+      const lats = fitPoints.map((p) => p.lat);
+      const lngs = fitPoints.map((p) => p.lng);
       void a.map.setBounds(
         [
           [Math.min(...lats), Math.min(...lngs)],

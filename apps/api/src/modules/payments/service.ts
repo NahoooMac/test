@@ -76,21 +76,8 @@ export class PaymentService {
           updatedAt: now,
         })
         .onConflictDoNothing({ target: [payments.deliveryId, payments.kind] });
-      await tx
-        .insert(riderLedger)
-        .values({
-          riderId,
-          type: 'commission',
-          amount: d.commissionAmount,
-          deliveryId: d.id,
-          note: `Commission ${Math.round(Number(d.commissionRate) * 10_000) / 100}% on ${d.fareAmount} ETB (#${d.publicCode})`,
-          createdBy: riderId,
-          createdAt: now,
-        })
-        .onConflictDoNothing({
-          target: riderLedger.deliveryId,
-          where: sql`${riderLedger.type} = 'commission'`,
-        });
+      // Commission is not charged here: it comes out of the rider's wallet only when the
+      // delivery is completed (see wallet.chargeCommission), never for failed/returned jobs.
       const [row] = await tx
         .select()
         .from(payments)
@@ -189,7 +176,7 @@ export class PaymentService {
       .limit(limit);
   }
 
-  /** Money a rider handed to the platform. Idempotent by key; never more than they owe. */
+  /** Money a rider handed to the platform (cash top-up received by an admin). Idempotent by key. */
   async settle(
     riderId: string,
     adminId: string,
@@ -215,21 +202,12 @@ export class PaymentService {
 
     try {
       await this.db.transaction(async (tx) => {
-        // Serialise settlements for this rider so two at once cannot both pass the balance check.
+        // Serialise money movements for this rider (see wallet.lockRider).
         await tx.execute(
           sql`select 1 from ${riders} where ${riders.userId} = ${riderId} for update`,
         );
-        const owed = toSantim(await this.balance(riderId, tx));
-        if (amount > owed) {
-          throw new AppError(
-            409,
-            'OVER_SETTLEMENT',
-            `This rider owes ${fromSantim(owed)} ETB; you entered more.`,
-            {
-              details: { owed: fromSantim(owed) },
-            },
-          );
-        }
+        // Prepaid wallet: money received from the rider may exceed what they owe; the rest is
+        // credit against future commission.
         await tx.insert(riderLedger).values({
           riderId,
           type: 'settlement',

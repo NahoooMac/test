@@ -112,6 +112,13 @@ const envSchema = z
         message: 'required in production (openssl rand -base64 32)',
       });
     }
+    if (env.DEMO_MODE) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['DEMO_MODE'],
+        message: 'demo accounts (fixed OTP codes) are not allowed in production',
+      });
+    }
     if (env.SMS_PROVIDER === 'console') {
       ctx.addIssue({
         code: 'custom',

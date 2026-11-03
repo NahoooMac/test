@@ -1,3 +1,5 @@
+import { LowWalletBanner } from './WalletScreen.tsx';
+import { useWallet } from './features.ts';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
@@ -121,9 +123,10 @@ export function RiderHomeScreen() {
   const profile = home.data?.profile ?? null;
   const online = !!profile?.isOnline;
   const onJob = !!home.data?.job;
-  const gps = useLocationSharing(online || onJob);
+  const gps = useLocationSharing(online || onJob, home.data?.job?.id);
   useWakeLock(online || onJob);
   const [recenter, setRecenter] = useState(0);
+  const wallet = useWallet();
 
   const toggle = useMutation({
     mutationFn: (next: boolean) =>
@@ -219,7 +222,7 @@ export function RiderHomeScreen() {
         </div>
 
         <Link
-          to="/rider/earnings"
+          to="/rider/wallet"
           aria-label={t('nav.earnings')}
           className="absolute bottom-10 left-4 flex size-14 items-center justify-center rounded-full bg-navy text-navy-ink shadow-[var(--shadow-lg)] active:scale-95"
         >
@@ -238,6 +241,7 @@ export function RiderHomeScreen() {
       {/* Sheet: today's numbers, status, and the online switch. */}
       <div className="relative z-10 -mt-6 flex shrink-0 flex-col gap-3 rounded-t-[28px] bg-canvas px-4 pt-3 pb-3 shadow-[0_-10px_28px_rgba(15,23,42,0.10)]">
         <span className="mx-auto h-1.5 w-10 rounded-full bg-line-strong" aria-hidden />
+        <LowWalletBanner wallet={wallet.data} />
         <TodayStats />
 
         {online && (

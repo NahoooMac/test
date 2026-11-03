@@ -39,6 +39,7 @@ export interface Ymaps21 {
   Map: new (el: HTMLElement, state: object, options?: object) => YMap;
   Placemark: new (coords: YCoords, properties: object, options: object) => YGeoObject;
   Polyline: new (coords: YCoords[], properties: object, options: object) => YGeoObject;
+  Circle?: new (geometry: [YCoords, number], properties: object, options: object) => YGeoObject;
   templateLayoutFactory: { createClass(template: string): unknown };
   route(points: YCoords[], params?: object): Promise<YRoute>;
   projection: { fromGlobalPixels(gp: [number, number], zoom: number): YCoords };

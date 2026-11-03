@@ -27,6 +27,10 @@ import { canTransition, STATUS_TIMESTAMP } from '../deliveries/state-machine.ts'
 import { noopRealtime, type Realtime } from '../realtime/hub.ts';
 import { PaymentService } from '../payments/service.ts';
 import { currentRules } from '../pricing/repo.ts';
+import { chargeCommission } from '../wallet/wallet.ts';
+import { assertRiderCanTakeJob } from './eligibility.ts';
+import { claimFromPool } from './pool.ts';
+import { awardCompletion, ensureStartingPoints, penalizeRiderCancellation } from './points.ts';
 
 type DeliveryRow = typeof deliveries.$inferSelect;
 
@@ -89,6 +93,7 @@ export class RiderService {
         }
         throw err;
       }
+      await ensureStartingPoints(tx, userId, now);
     });
     this.realtime.publish({ type: 'ops', data: { riderId: userId } }, { admins: true });
     return (await this.profile(userId))!;
@@ -296,6 +301,13 @@ export class RiderService {
         if (!offer || offer.expiresAt <= now) {
           throw new AppError(409, 'OFFER_GONE', 'This job is no longer available.');
         }
+        // Re-check every mandatory rule now (area, wallet, approval): things may have changed
+        // since the offer was made.
+        const [job] = await tx.select().from(deliveries).where(eq(deliveries.id, offer.deliveryId));
+        if (!job || job.status !== 'requested') {
+          throw new AppError(409, 'OFFER_GONE', 'This job is no longer available.');
+        }
+        await assertRiderCanTakeJob(tx, userId, job);
         const [assigned] = await tx
           .update(deliveries)
           .set({
@@ -363,11 +375,26 @@ export class RiderService {
         );
       }
     }
-    await this.transition(d, to, 'rider', userId, at);
+    await this.transition(d, to, 'rider', userId, at, async (tx, now) => {
+      if (to !== 'delivered') return;
+      // Same transaction as the status change: never "delivered" without its commission and
+      // point, and never twice (unique indexes make a retry a no-op).
+      await chargeCommission(tx, { ...d, riderId: userId }, now);
+      await awardCompletion(tx, userId, d.id, now);
+    });
     return this.toJob((await this.ownJob(userId, deliveryId, true))!);
   }
 
   /** Rider gives the job back before reaching pickup; it is re-offered to someone else. */
+  /** Takes a job from the offer pool (atomic; see pool.ts). */
+  async claim(userId: string, deliveryId: string): Promise<RiderJob> {
+    const id = await claimFromPool(this.db, userId, deliveryId, this.clock.now());
+    await this.realtime.deliveryChanged(id);
+    this.realtime.publish({ type: 'ops', data: { riderId: userId } }, { admins: true });
+    const [d] = await this.db.select().from(deliveries).where(eq(deliveries.id, id));
+    return this.toJob(d!);
+  }
+
   async release(userId: string, deliveryId: string): Promise<RiderJob> {
     const d = await this.ownJob(userId, deliveryId);
     if (!canTransition(d.status, 'requested', 'rider')) {
@@ -388,6 +415,8 @@ export class RiderService {
         .returning({ id: deliveries.id });
       if (!updated.length) throw stale();
       await recordEvent(tx, d.id, d.status, 'requested', 'rider', userId, now, { released: true });
+      // Giving back an accepted job is a rider-responsible cancellation: −3 points, once.
+      await penalizeRiderCancellation(tx, userId, d.id, 'Released an accepted job', now);
     });
     await this.realtime.deliveryChanged(d.id);
     this.realtime.notifyUser(userId, 'delivery', { id: d.id });
@@ -533,6 +562,7 @@ export class RiderService {
     actor: 'rider' | 'admin' | 'system',
     actorUserId: string | null,
     at?: { lat?: number | undefined; lng?: number | undefined },
+    alsoInTx?: (tx: Tx, now: Date) => Promise<void>,
   ) {
     const now = this.clock.now();
     const stamp = (STATUS_TIMESTAMP as Partial<Record<DeliveryStatus, string>>)[to];
@@ -555,6 +585,7 @@ export class RiderService {
         .returning({ id: deliveries.id });
       if (!updated.length) throw stale();
       await recordEvent(tx, d.id, d.status, to, actor, actorUserId, now, undefined, at);
+      await alsoInTx?.(tx, now);
     });
     await this.realtime.deliveryChanged(d.id);
   }

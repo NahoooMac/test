@@ -1,6 +1,6 @@
 // Payments, commission ledger, settlements, pricing versions and admin tools.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import {
   adminAuditLog,
   deliveries,
@@ -117,7 +117,7 @@ async function deliveredJob(r: { cookie: string }, c: { cookie: string }) {
 }
 
 describe('fare payments', () => {
-  it('records once (even when tapped twice at once) and charges commission once', async () => {
+  it('records once (even when tapped twice at once); commission comes off once, on delivery', async () => {
     const r = await rider();
     const c = await customer();
     const d = await book(c);
@@ -138,13 +138,17 @@ describe('fare payments', () => {
       method: 'telebirr',
       reference: 'TB-123',
     });
-    const ledger = await t.database.db
-      .select()
-      .from(riderLedger)
-      .where(eq(riderLedger.deliveryId, d.id));
+    const ledgerFor = () =>
+      t.database.db.select().from(riderLedger).where(eq(riderLedger.deliveryId, d.id));
+    // Recording the fare is not completion: nothing is deducted yet.
+    expect(await ledgerFor()).toHaveLength(0);
+    await step(r, d.id, 'picked_up');
+    await step(r, d.id, 'arrived_dropoff');
+    await Promise.all([step(r, d.id, 'delivered'), step(r, d.id, 'delivered')]);
+    const ledger = await ledgerFor();
     expect(ledger).toHaveLength(1);
     const [row] = await t.database.db.select().from(deliveries).where(eq(deliveries.id, d.id));
-    expect(ledger[0]!.amount).toBe(row!.commissionAmount);
+    expect(ledger[0]!).toMatchObject({ type: 'commission', amount: row!.commissionAmount });
 
     const mine = (await call('GET', `/api/deliveries/${d.id}`, c.cookie)).json();
     expect(mine.farePayment).toEqual({ status: 'collected', method: 'telebirr' });
@@ -216,20 +220,10 @@ describe('fare payments', () => {
 });
 
 describe('ledger and settlements', () => {
-  it('tracks what a rider owes; settlements are idempotent and capped at the balance', async () => {
+  it('cash top-ups credit the prepaid wallet idempotently; delivered jobs deduct commission', async () => {
     const r = await rider();
     const c = await customer();
     const a = await admin();
-    await deliveredJob(r, c);
-    t.clock.advanceSeconds(60);
-    await call('POST', '/api/rider/location', r.cookie, MESKEL);
-    await deliveredJob(r, c);
-
-    const ledger = (await call('GET', `/api/admin/riders/${r.id}/ledger`, a.cookie)).json();
-    const owed = Number(ledger.balance);
-    expect(owed).toBeGreaterThan(0);
-    expect((await call('GET', '/api/rider/ledger', r.cookie)).json().balance).toBe(ledger.balance);
-
     const settle = (amount: string, key: string) =>
       call(
         'POST',
@@ -246,21 +240,36 @@ describe('ledger and settlements', () => {
         })
       ).statusCode,
     ).toBe(400);
-    expect((await settle((owed + 1).toFixed(2), 'settle-over-1')).json().error.code).toBe(
-      'OVER_SETTLEMENT',
-    );
 
-    const first = await settle('10', 'settle-key-1');
+    const first = await settle('100', 'settle-key-1');
     expect(first.statusCode).toBe(201);
-    expect(Number(first.json().balance)).toBeCloseTo(owed - 10, 2);
-    const repeat = await settle('10', 'settle-key-1');
+    // The ledger balance is what the rider owes; a credit is negative.
+    expect(first.json().balance).toBe('-100.00');
+    const repeat = await settle('100', 'settle-key-1');
     expect(repeat.statusCode).toBe(200);
-    expect(repeat.json().balance).toBe(first.json().balance);
+    expect(repeat.json().balance).toBe('-100.00');
+
+    const one = await deliveredJob(r, c);
+    t.clock.advanceSeconds(60);
+    await call('POST', '/api/rider/location', r.cookie, MESKEL);
+    const two = await deliveredJob(r, c);
+    const jobs = await t.database.db
+      .select({ commission: deliveries.commissionAmount })
+      .from(deliveries)
+      .where(inArray(deliveries.id, [one.id, two.id]));
+    const commissions = jobs.reduce((sum, j) => sum + Number(j.commission), 0);
+    expect(commissions).toBeGreaterThan(0);
+
+    const ledger = (await call('GET', `/api/admin/riders/${r.id}/ledger`, a.cookie)).json();
+    expect((await call('GET', '/api/rider/ledger', r.cookie)).json().balance).toBe(ledger.balance);
+    const wallet = (await call('GET', '/api/rider/wallet', r.cookie)).json();
+    expect(Number(wallet.balance)).toBeCloseTo(-Number(ledger.balance), 2);
+    expect(Number(wallet.balance)).toBeLessThan(100);
+    expect(Number(wallet.balance)).toBeCloseTo(100 - commissions, 2);
 
     const recon = (await call('GET', '/api/admin/reconciliation', a.cookie)).json();
     const row = recon.riders.find((x: { riderId: string }) => x.riderId === r.id);
-    expect(row).toMatchObject({ deliveries: 2, settled: '10.00', balance: first.json().balance });
-    expect(recon.totals.outstanding).toBe(first.json().balance);
+    expect(row).toMatchObject({ deliveries: 2, settled: '100.00', balance: ledger.balance });
 
     const csv = await call('GET', '/api/admin/reconciliation.csv', a.cookie);
     expect(csv.headers['content-type']).toContain('text/csv');

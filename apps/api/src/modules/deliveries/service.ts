@@ -31,6 +31,7 @@ import { AppError, isUniqueViolation } from '../../shared/errors.ts';
 import { computeFare, estimateRoadKm, etaMinutes, unavailableReason } from '../pricing/pricing.ts';
 import { currentRule, currentRules } from '../pricing/repo.ts';
 import { canTransition, customerCancellationFee } from './state-machine.ts';
+import { penalizeRiderCancellation } from '../riders/points.ts';
 
 type DeliveryRow = typeof deliveries.$inferSelect;
 type EventRow = typeof deliveryEvents.$inferSelect;
@@ -219,6 +220,7 @@ export class DeliveryService {
     id: string,
     reason: string,
     chargeFee: boolean,
+    riderResponsible = false,
   ): Promise<void> {
     const [row] = await this.selectWithJoins().where(eq(deliveries.id, id)).limit(1);
     if (!row) throw notFound();
@@ -232,7 +234,13 @@ export class DeliveryService {
     const fee = chargeFee
       ? (customerCancellationFee(row.d.status, row.feeAfterArrival) ?? '0.00')
       : '0.00';
-    await this.cancel(id, row.d.status, 'admin', adminId, fee, reason);
+    // Only an admin can decide a cancellation was the rider's fault; customer and system
+    // cancellations never cost the rider points.
+    const penalize =
+      riderResponsible && row.d.riderId
+        ? { riderId: row.d.riderId, by: adminId }
+        : undefined;
+    await this.cancel(id, row.d.status, 'admin', adminId, fee, reason, penalize);
   }
 
   private async cancel(
@@ -242,6 +250,7 @@ export class DeliveryService {
     actorId: string,
     fee: string,
     reason: string | null,
+    penalize?: { riderId: string; by: string },
   ) {
     const [row] = await this.db
       .select({ version: deliveries.version, payer: deliveries.payer })
@@ -281,7 +290,18 @@ export class DeliveryService {
       await this.payments.recordDueCancellationFee(tx, { id, payer: row!.payer }, fee);
       await this.recordEvent(tx, id, fromStatus, 'cancelled', actor, actorId, reason, {
         cancellationFee: fee,
+        ...(penalize ? { riderResponsible: true } : {}),
       });
+      if (penalize) {
+        await penalizeRiderCancellation(
+          tx,
+          penalize.riderId,
+          id,
+          `Cancelled by admin, rider responsible: ${reason ?? ''}`.trim(),
+          now,
+          penalize.by,
+        );
+      }
     });
     await this.realtime.deliveryChanged(id);
   }

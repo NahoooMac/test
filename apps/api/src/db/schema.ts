@@ -261,6 +261,10 @@ export const riders = pgTable(
     kycReason: text('kyc_reason'),
     /** Captures the admin asked the rider to redo. */
     kycRetake: jsonb('kyc_retake').$type<KycDocumentKind[]>().notNull().default([]),
+    // Optional home location: a matching preference only, never shown to customers or riders.
+    homeLat: coord('home_lat'),
+    homeLng: coord('home_lng'),
+    homeRadiusKm: numeric('home_radius_km', { precision: 5, scale: 2, mode: 'number' }),
     isOnline: boolean('is_online').notNull().default(false),
     currentLat: coord('current_lat'),
     currentLng: coord('current_lng'),
@@ -280,6 +284,134 @@ export const riders = pgTable(
       'riders_approved_needs_kyc',
       sql`${t.approvalStatus} <> 'approved' or ${t.kycStatus} = 'approved'`,
     ),
+    check(
+      'riders_home_complete',
+      sql`(${t.homeLat} is null) = (${t.homeLng} is null) and (${t.homeRadiusKm} is null or (${t.homeLat} is not null and ${t.homeRadiusKm} > 0 and ${t.homeRadiusKm} <= 30))`,
+    ),
+  ],
+);
+
+/** Sub-cities a rider wants offers in. FK to the seeded list, so only supported areas exist. */
+export const riderServiceAreas = pgTable(
+  'rider_service_areas',
+  {
+    riderId: uuid('rider_id')
+      .notNull()
+      .references(() => riders.userId, { onDelete: 'cascade' }),
+    subCity: text('sub_city')
+      .notNull()
+      .references(() => serviceAreas.slug),
+    createdAt: tstz('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.riderId, t.subCity] })],
+);
+
+/** Admin-configurable values (wallet limits, matching weights, retention). Changes are audited. */
+export const platformSettings = pgTable('platform_settings', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  updatedBy: uuid('updated_by').references(() => users.id),
+  updatedAt: tstz('updated_at').notNull().defaultNow(),
+});
+
+export const pointsType = pgEnum('points_type', [
+  'initial',
+  'completion',
+  'rider_cancellation',
+  'adjustment',
+]);
+
+/** Rider points ledger: balance = SUM(delta). Append-only; awards/deductions are once-only. */
+export const riderPoints = pgTable(
+  'rider_points',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    riderId: uuid('rider_id')
+      .notNull()
+      .references(() => riders.userId, { onDelete: 'cascade' }),
+    deliveryId: uuid('delivery_id').references(() => deliveries.id, { onDelete: 'restrict' }),
+    type: pointsType('type').notNull(),
+    delta: integer('delta').notNull(),
+    reason: text('reason').notNull(),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: tstz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('rider_points_one_initial').on(t.riderId).where(sql`${t.type} = 'initial'`),
+    uniqueIndex('rider_points_once_per_delivery')
+      .on(t.deliveryId, t.riderId, t.type)
+      .where(sql`${t.type} in ('completion', 'rider_cancellation')`),
+    check(
+      'rider_points_rules',
+      sql`(${t.type} = 'initial' and ${t.delta} = 50) or (${t.type} = 'completion' and ${t.delta} = 1 and ${t.deliveryId} is not null) or (${t.type} = 'rider_cancellation' and ${t.delta} = -3 and ${t.deliveryId} is not null) or (${t.type} = 'adjustment' and ${t.delta} <> 0 and ${t.createdBy} is not null)`,
+    ),
+    index('rider_points_rider_idx').on(t.riderId, t.createdAt),
+  ],
+);
+
+export const ratingStatus = pgEnum('rating_status', ['active', 'reported', 'removed']);
+
+/** One customer rating per delivered delivery. Reported ratings await admin review. */
+export const deliveryRatings = pgTable(
+  'delivery_ratings',
+  {
+    deliveryId: uuid('delivery_id')
+      .primaryKey()
+      .references(() => deliveries.id, { onDelete: 'cascade' }),
+    riderId: uuid('rider_id')
+      .notNull()
+      .references(() => riders.userId),
+    customerId: uuid('customer_id')
+      .notNull()
+      .references(() => users.id),
+    stars: smallint('stars').notNull(),
+    comment: text('comment'),
+    status: ratingStatus('status').notNull().default('active'),
+    reportReason: text('report_reason'),
+    reportedAt: tstz('reported_at'),
+    reviewedBy: uuid('reviewed_by').references(() => users.id),
+    reviewedAt: tstz('reviewed_at'),
+    reviewNote: text('review_note'),
+    createdAt: tstz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    check('delivery_ratings_stars', sql`${t.stars} between 1 and 5`),
+    index('delivery_ratings_rider_idx').on(t.riderId, t.createdAt),
+    index('delivery_ratings_status_idx').on(t.status, t.createdAt),
+  ],
+);
+
+export const topupStatus = pgEnum('topup_status', ['pending', 'verified', 'rejected']);
+
+/**
+ * A rider's claim that they sent money to top up their wallet. Nothing is credited until an admin
+ * verifies the transfer; the same transaction reference can't be credited twice.
+ */
+export const walletTopups = pgTable(
+  'wallet_topups',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    riderId: uuid('rider_id')
+      .notNull()
+      .references(() => riders.userId, { onDelete: 'restrict' }),
+    amount: money('amount').notNull(),
+    method: paymentMethod('method').notNull(),
+    reference: text('reference').notNull(),
+    status: topupStatus('status').notNull().default('pending'),
+    note: text('note'),
+    reviewedBy: uuid('reviewed_by').references(() => users.id),
+    reviewedAt: tstz('reviewed_at'),
+    reviewNote: text('review_note'),
+    createdAt: tstz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    check('wallet_topups_amount', sql`${t.amount} > 0 and ${t.amount} <= 100000`),
+    check('wallet_topups_method', sql`${t.method} in ('telebirr', 'cbe_birr')`),
+    uniqueIndex('wallet_topups_unique_reference')
+      .on(t.method, sql`upper(${t.reference})`)
+      .where(sql`${t.status} <> 'rejected'`),
+    index('wallet_topups_status_idx').on(t.status, t.createdAt),
+    index('wallet_topups_rider_idx').on(t.riderId, t.createdAt),
   ],
 );
 
@@ -475,6 +607,8 @@ export const deliveryOffers = pgTable(
     offeredAt: tstz('offered_at').notNull().defaultNow(),
     expiresAt: tstz('expires_at').notNull(),
     respondedAt: tstz('responded_at'),
+    /** Why this rider was chosen: the matching score and its parts (explainability). */
+    score: jsonb('score').$type<Record<string, number>>(),
   },
   (t) => [
     // A delivery is offered to one rider at a time …
@@ -488,6 +622,38 @@ export const deliveryOffers = pgTable(
     // Within a dispatch round, a rider who declined or let an offer lapse is not asked again.
     uniqueIndex('delivery_offers_once_per_rider_round').on(t.deliveryId, t.riderId, t.round),
     index('delivery_offers_open_expiry_idx').on(t.status, t.expiresAt),
+  ],
+);
+
+export const routeStage = pgEnum('route_stage', ['to_pickup', 'to_dropoff', 'returning']);
+
+/**
+ * The rider's actual GPS positions during a job (not the planned route). Stage is derived on the
+ * server from the delivery's own timestamps. Kept as history after the job ends, until retention.
+ */
+export const deliveryRoutePoints = pgTable(
+  'delivery_route_points',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    deliveryId: uuid('delivery_id')
+      .notNull()
+      .references(() => deliveries.id, { onDelete: 'cascade' }),
+    riderId: uuid('rider_id')
+      .notNull()
+      .references(() => riders.userId),
+    lat: coord('lat').notNull(),
+    lng: coord('lng').notNull(),
+    recordedAt: tstz('recorded_at').notNull(),
+    stage: routeStage('stage').notNull(),
+    accuracyM: integer('accuracy_m'),
+    source: text('source').notNull().default('gps'),
+    receivedAt: tstz('received_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // A re-sent batch (after a lost connection) never stores a fix twice.
+    uniqueIndex('delivery_route_points_once').on(t.deliveryId, t.recordedAt),
+    index('delivery_route_points_received_idx').on(t.receivedAt),
+    check('delivery_route_points_coords', sql`${t.lat} between -90 and 90 and ${t.lng} between -180 and 180`),
   ],
 );
 

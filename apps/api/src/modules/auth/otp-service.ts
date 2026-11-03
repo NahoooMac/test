@@ -80,7 +80,7 @@ export class OtpService {
       return this.describe(challenge, now);
     }
 
-    const demoBypass = config.DEMO_MODE && isDemoPhone(phone);
+    const demoBypass = config.DEMO_MODE && config.NODE_ENV !== 'production' && isDemoPhone(phone);
 
     // We are about to spend an SMS: apply limits (demo accounts skip this).
     if (!demoBypass) {

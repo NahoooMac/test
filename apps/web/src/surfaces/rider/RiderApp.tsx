@@ -1,10 +1,15 @@
 import { useEffect, type ReactNode } from 'react';
-import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
+import { Link, Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Home, Wallet, UserRound } from 'lucide-react';
+import { Briefcase, ChevronRight, History, Home, MapPinned, Wallet, UserRound } from 'lucide-react';
 import { FullScreenLoader, RequireRole, useSession } from '../../lib/session.tsx';
 import { ApplyForm } from '../../features/rider/ApplyForm.tsx';
 import { RiderEarnings, RiderHomeScreen } from '../../features/rider/RiderHomeScreen.tsx';
+import { PoolScreen } from '../../features/rider/PoolScreen.tsx';
+import { WalletScreen } from '../../features/rider/WalletScreen.tsx';
+import { HistoryDetailScreen, HistoryScreen } from '../../features/rider/HistoryScreen.tsx';
+import { AreasScreen } from '../../features/rider/AreasScreen.tsx';
+import { useRiderCopy } from '../../features/rider/features.ts';
 import { useTheme } from '../../lib/theme.ts';
 import { armRingtone } from '../../lib/ringtone.ts';
 import { SignInFlow } from '../../features/auth/SignInFlow.tsx';
@@ -27,8 +32,13 @@ export default function RiderApp() {
         }
       >
         <Route index element={<RiderHomeScreen />} />
+        <Route path="jobs" element={<PoolScreen />} />
+        <Route path="history" element={<HistoryScreen />} />
+        <Route path="history/:id" element={<HistoryDetailScreen />} />
+        <Route path="wallet" element={<WalletScreen />} />
         <Route path="earnings" element={<RiderEarnings />} />
-        <Route path="account" element={<AccountPanel signInPath="/rider/sign-in" />} />
+        <Route path="areas" element={<AreasScreen />} />
+        <Route path="account" element={<RiderAccount />} />
       </Route>
     </Routes>
   );
@@ -59,8 +69,28 @@ function RiderSignIn() {
   );
 }
 
+function RiderAccount() {
+  const c = useRiderCopy();
+  return (
+    <>
+      <div className="px-4 pt-6">
+        <Link
+          to="/rider/areas"
+          className="flex items-center gap-3 rounded-[var(--radius-lg)] border border-line bg-surface px-4 py-3.5 font-semibold shadow-[var(--shadow-xs)]"
+        >
+          <MapPinned className="size-5 text-accent" aria-hidden />
+          <span className="flex-1">{c.areas.link}</span>
+          <ChevronRight className="size-4 text-ink-3" aria-hidden />
+        </Link>
+      </div>
+      <AccountPanel signInPath="/rider/sign-in" />
+    </>
+  );
+}
+
 function RiderShell() {
   const { t } = useTranslation();
+  const c = useRiderCopy();
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col">
       <main className="flex flex-1 flex-col">
@@ -70,7 +100,9 @@ function RiderShell() {
         label="Rider"
         left={[
           { to: '/rider', label: t('nav.home'), icon: Home, end: true },
-          { to: '/rider/earnings', label: t('nav.earnings'), icon: Wallet },
+          { to: '/rider/jobs', label: c.nav.jobs, icon: Briefcase },
+          { to: '/rider/history', label: c.nav.history, icon: History },
+          { to: '/rider/wallet', label: c.nav.wallet, icon: Wallet },
           { to: '/rider/account', label: t('nav.account'), icon: UserRound },
         ]}
       />

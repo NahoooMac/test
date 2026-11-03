@@ -20,6 +20,7 @@ import {
 import { Row } from '../booking/BookingFlow.tsx';
 import { isOpen, stageIndex } from './status.ts';
 import { TrackingSheet } from './TrackingSheet.tsx';
+import { RateRider } from './RateRider.tsx';
 
 export function DeliveryDetail() {
   const { t, i18n } = useTranslation();
@@ -143,6 +144,7 @@ export function DeliveryDetail() {
 
       <div className="flex flex-col gap-5 px-4 pt-5">
         {d.status === 'requested' && <Notice tone="info">{t('delivery.waiting')}</Notice>}
+        {d.status === 'delivered' && d.rider && <RateRider deliveryId={d.id} />}
         {isOpen(d.status) && (
           <Button
             variant="secondary"

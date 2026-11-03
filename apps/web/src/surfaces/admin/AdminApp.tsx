@@ -3,7 +3,10 @@ import { NavLink, Outlet, Route, Routes, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import {
   BadgeDollarSign,
+  History,
   LogOut,
+  Star,
+  Wallet,
   Map,
   Menu,
   Package,
@@ -27,6 +30,12 @@ import { ReconciliationAdmin } from '../../features/admin/FinanceAdmin.tsx';
 import { PricingAdmin } from '../../features/admin/PricingAdmin.tsx';
 import { UsersAdmin } from '../../features/admin/UsersAdmin.tsx';
 import { AdminSettings } from '../../features/admin/AdminSettings.tsx';
+import {
+  HistoryAdmin,
+  RatingsAdmin,
+  TopupsAdmin,
+  WalletsAdmin,
+} from '../../features/admin/RiderFeaturesAdmin.tsx';
 import { LanguageToggle } from '../../features/auth/LanguageToggle.tsx';
 import { CitySkyline, EmptyState, cn } from '../../ui/index.ts';
 import { Wordmark } from '../Wordmark.tsx';
@@ -50,6 +59,11 @@ export default function AdminApp() {
         <Route path="deliveries" element={<DeliveriesAdmin />} />
         <Route path="deliveries/:id" element={<DeliveriesAdmin />} />
         <Route path="reconciliation" element={<ReconciliationAdmin />} />
+        <Route path="wallets" element={<WalletsAdmin />} />
+        <Route path="topups" element={<TopupsAdmin />} />
+        <Route path="ratings" element={<RatingsAdmin />} />
+        <Route path="history" element={<HistoryAdmin />} />
+        <Route path="history/:id" element={<HistoryAdmin />} />
         <Route path="pricing" element={<PricingAdmin />} />
         <Route path="users" element={<UsersAdmin />} />
         <Route path="settings" element={<AdminSettings />} />
@@ -115,6 +129,10 @@ function AdminShell() {
     { to: '/admin/deliveries', label: t('nav.deliveries'), icon: Package, end: false },
     { to: '/admin/riders', label: t('nav.riders'), icon: UserCog, end: false },
     { to: '/admin/verification', label: t('nav.verification'), icon: ScanFace, end: false },
+    { to: '/admin/history', label: 'History', icon: History, end: false },
+    { to: '/admin/wallets', label: 'Wallets', icon: Wallet, end: false },
+    { to: '/admin/topups', label: 'Top-ups', icon: BadgeDollarSign, end: false },
+    { to: '/admin/ratings', label: 'Ratings', icon: Star, end: false },
     { to: '/admin/reconciliation', label: t('nav.reconciliation'), icon: Scale, end: false },
     { to: '/admin/pricing', label: t('nav.pricing'), icon: BadgeDollarSign, end: false },
     { to: '/admin/users', label: t('nav.users'), icon: Users, end: false },

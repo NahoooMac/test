@@ -47,6 +47,8 @@ export const adminCancelSchema = z.object({
   reason: z.string().trim().min(3, 'Give a reason.').max(200),
   /** Only applies after the rider reached the pickup. */
   chargeFee: z.boolean().default(false),
+  /** The assigned rider caused the cancellation (no-show, misconduct): −3 points. */
+  riderResponsible: z.boolean().default(false),
 });
 
 export const adminAssignSchema = z.object({ riderId: z.string().uuid() });

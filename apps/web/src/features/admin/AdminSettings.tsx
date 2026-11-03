@@ -1,3 +1,4 @@
+import { PlatformSettingsPanel } from './RiderFeaturesAdmin.tsx';
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -44,11 +45,13 @@ export function AdminSettings() {
   };
 
   return (
-    <div className="flex max-w-xl flex-col gap-5">
+    <div className="flex max-w-3xl flex-col gap-5">
       <div>
         <h1 className="text-[26px] font-bold tracking-tight">Settings</h1>
-        <p className="text-[15px] text-ink-2">Your staff account.</p>
+        <p className="text-[15px] text-ink-2">Platform rules and your staff account.</p>
       </div>
+
+      <PlatformSettingsPanel />
 
       <Panel className="divide-y divide-line">
         <div className="flex items-center justify-between gap-4 px-4 py-3">
