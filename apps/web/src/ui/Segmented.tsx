@@ -18,7 +18,11 @@ export function Segmented<T extends string>({
     <div
       role="tablist"
       aria-label={label}
-      className={cn('flex gap-1 rounded-full bg-surface-2 p-1', className)}
+      // Too many options for a phone? The bar scrolls sideways itself; the page never does.
+      className={cn(
+        'flex max-w-full gap-1 overflow-x-auto rounded-full bg-surface-2 p-1 [scrollbar-width:none]',
+        className,
+      )}
     >
       {options.map((o) => {
         const active = o.value === value;
@@ -30,7 +34,7 @@ export function Segmented<T extends string>({
             aria-selected={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              'flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-semibold whitespace-nowrap',
+              'flex h-9 flex-1 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-semibold whitespace-nowrap',
               'transition-all duration-[var(--dur-fast)] ease-[var(--ease-out)]',
               active ? 'bg-surface text-accent shadow-[var(--shadow-sm)]' : 'text-ink-3 hover:text-ink',
             )}

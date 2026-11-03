@@ -1,9 +1,11 @@
-import { NavLink, Outlet, Route, Routes } from 'react-router';
+import { useEffect, useRef, useState } from 'react';
+import { NavLink, Outlet, Route, Routes, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import {
   BadgeDollarSign,
   LogOut,
   Map,
+  Menu,
   Package,
   Scale,
   ScanFace,
@@ -11,6 +13,7 @@ import {
   ShieldCheck,
   Users,
   UserCog,
+  X,
 } from 'lucide-react';
 import { SUB_CITIES, formatPhone } from '@dp/shared';
 import { RequireRole, useSession, useSignOut } from '../../lib/session.tsx';
@@ -117,48 +120,146 @@ function AdminShell() {
     { to: '/admin/users', label: t('nav.users'), icon: Users, end: false },
     { to: '/admin/settings', label: t('nav.settings'), icon: Settings, end: false },
   ];
+  const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const current = items.find((i) =>
+    i.end ? location.pathname === i.to : location.pathname.startsWith(i.to),
+  );
+
+  // Close the drawer on navigation and on Escape; stop the page scrolling behind it.
+  useEffect(() => setMenuOpen(false), [location.pathname]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuOpen(false);
+    document.addEventListener('keydown', onKey);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = overflow;
+    };
+  }, [menuOpen]);
+
   return (
     <div className="min-h-dvh bg-canvas lg:grid lg:grid-cols-[264px_minmax(0,1fr)]">
-      <nav
-        className={cn(
-          'sticky top-0 z-20 flex items-center gap-1 overflow-x-auto border-b border-line bg-surface/95 px-3 py-2 backdrop-blur-md',
-          'lg:h-dvh lg:flex-col lg:items-stretch lg:overflow-visible lg:border-b-0 lg:bg-navy lg:p-4 lg:text-navy-ink lg:backdrop-blur-none',
+      {/* Desktop: fixed sidebar. */}
+      <aside className="sticky top-0 hidden h-dvh lg:block">
+        <AdminNav items={items} />
+      </aside>
+
+      {/* Phones and tablets: top bar with a hamburger that opens the same menu as a drawer. */}
+      <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-surface/95 px-3 backdrop-blur-md lg:hidden">
+        <button
+          type="button"
+          onClick={() => setMenuOpen(true)}
+          aria-label="Open menu"
+          aria-expanded={menuOpen}
+          aria-controls="admin-menu"
+          className="flex size-10 items-center justify-center rounded-[var(--radius-md)] text-ink hover:bg-surface-2"
+        >
+          <Menu className="size-6" aria-hidden />
+        </button>
+        <Wordmark suffix="Ops" />
+        {current && (
+          <span className="ml-auto truncate text-sm font-semibold text-ink-2">{current.label}</span>
         )}
-        aria-label="Admin"
+      </header>
+
+      <div
+        className={cn(
+          'fixed inset-0 z-40 lg:hidden',
+          menuOpen ? 'pointer-events-auto' : 'pointer-events-none',
+        )}
+        aria-hidden={!menuOpen}
       >
-        <span className="mr-2 shrink-0 lg:hidden">
-          <Wordmark suffix="Ops" />
-        </span>
-        <span className="mb-7 hidden px-2 pt-3 lg:block">
-          <Wordmark suffix="Ops" inverse />
-        </span>
-        <div className="flex gap-1 lg:flex-col lg:gap-1">
-          {items.map(({ to, label, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                cn(
-                  'flex h-10 shrink-0 items-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium whitespace-nowrap lg:h-11',
-                  'transition-colors duration-[var(--dur-fast)]',
-                  isActive
-                    ? 'bg-accent text-white shadow-[0_6px_16px_-6px_rgba(37,99,235,0.7)]'
-                    : 'text-ink-2 hover:bg-surface-2 hover:text-ink lg:text-navy-ink/65 lg:hover:bg-white/5 lg:hover:text-navy-ink',
-                )
-              }
-            >
-              <Icon className="size-[18px]" aria-hidden />
-              {label}
-            </NavLink>
-          ))}
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label="Close menu"
+          onClick={() => setMenuOpen(false)}
+          className={cn(
+            'absolute inset-0 bg-black/50 transition-opacity duration-[var(--dur-normal)]',
+            menuOpen ? 'opacity-100' : 'opacity-0',
+          )}
+        />
+        <div
+          id="admin-menu"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Admin menu"
+          className={cn(
+            'absolute inset-y-0 left-0 w-[min(18rem,85vw)] shadow-[var(--shadow-xl)]',
+            'transition-transform duration-[var(--dur-normal)] ease-[var(--ease-out)]',
+            menuOpen ? 'translate-x-0' : '-translate-x-full',
+          )}
+        >
+          {/* Only mounted while open, so its links aren't tabbable when hidden. */}
+          {menuOpen && <AdminNav items={items} onClose={() => setMenuOpen(false)} />}
         </div>
-        <AdminUser />
-      </nav>
+      </div>
+
       <main className="min-w-0 p-4 lg:p-8">
         <Outlet />
       </main>
     </div>
+  );
+}
+
+type NavItem = { to: string; label: string; icon: typeof Map; end: boolean };
+
+/** The navy menu: sidebar on desktop, drawer content on phones. */
+function AdminNav({ items, onClose }: { items: NavItem[]; onClose?: () => void }) {
+  const ref = useRef<HTMLElement>(null);
+  // As a drawer: move keyboard focus into the menu once it has slid in.
+  useEffect(() => {
+    if (!onClose) return;
+    const id = requestAnimationFrame(() => ref.current?.querySelector<HTMLElement>('a')?.focus());
+    return () => cancelAnimationFrame(id);
+    // Once, when the drawer opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <nav
+      ref={ref}
+      className="flex h-full flex-col overflow-y-auto bg-navy p-4 text-navy-ink"
+      aria-label="Admin"
+    >
+      <div className="mb-7 flex items-center justify-between px-2 pt-3">
+        <Wordmark suffix="Ops" inverse />
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close menu"
+            className="flex size-9 items-center justify-center rounded-full text-navy-ink/70 hover:bg-white/10 hover:text-navy-ink"
+          >
+            <X className="size-5" aria-hidden />
+          </button>
+        )}
+      </div>
+      <div className="flex flex-col gap-1">
+        {items.map(({ to, label, icon: Icon, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              cn(
+                'flex h-11 shrink-0 items-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium whitespace-nowrap',
+                'transition-colors duration-[var(--dur-fast)]',
+                isActive
+                  ? 'bg-accent text-white shadow-[0_6px_16px_-6px_rgba(37,99,235,0.7)]'
+                  : 'text-navy-ink/65 hover:bg-white/5 hover:text-navy-ink',
+              )
+            }
+          >
+            <Icon className="size-[18px]" aria-hidden />
+            {label}
+          </NavLink>
+        ))}
+      </div>
+      <AdminUser />
+    </nav>
   );
 }
 
@@ -174,8 +275,8 @@ function AdminUser() {
     .map((p) => p[0]!.toUpperCase())
     .join('');
   return (
-    <div className="ml-auto shrink-0 lg:mt-auto lg:ml-0 lg:rounded-[var(--radius-lg)] lg:bg-white/5 lg:p-3">
-      <div className="hidden items-center gap-3 lg:flex">
+    <div className="mt-auto shrink-0 rounded-[var(--radius-lg)] bg-white/5 p-3">
+      <div className="flex items-center gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-2 to-accent text-sm font-bold text-white">
           {initials}
         </span>
@@ -188,7 +289,7 @@ function AdminUser() {
         type="button"
         onClick={() => signOut.mutate()}
         disabled={signOut.isPending}
-        className="flex h-9 items-center gap-2 text-sm font-medium text-ink-2 hover:text-danger disabled:opacity-50 lg:mt-2 lg:text-navy-ink/65"
+        className="mt-2 flex h-9 items-center gap-2 text-sm font-medium text-navy-ink/65 hover:text-danger disabled:opacity-50"
       >
         <LogOut className="size-4" aria-hidden />
         {signOut.isPending ? t('auth.signingOut') : t('auth.signOut')}
