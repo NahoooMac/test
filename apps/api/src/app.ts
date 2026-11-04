@@ -28,6 +28,7 @@ import { adminFinanceRoutes } from './modules/admin/finance.ts';
 import { adminUserRoutes } from './modules/admin/users.ts';
 import { KycService } from './modules/kyc/service.ts';
 import { kycRoutes } from './modules/kyc/routes.ts';
+import { PayerNotifier } from './modules/deliveries/payerNotice.ts';
 import { riderFeatureRoutes } from './modules/riders/featureRoutes.ts';
 import { ratingRoutes } from './modules/ratings/routes.ts';
 import { adminRiderFeatureRoutes } from './modules/admin/riderFeatures.ts';
@@ -77,11 +78,12 @@ export async function buildApp({
 
   const db = database.db;
   const sessions = new SessionService(db, config, clock);
+  const smsProvider = sms ?? createSmsProvider(config);
   const otp = new OtpService({
     db,
     config,
     clock,
-    sms: sms ?? createSmsProvider(config),
+    sms: smsProvider,
     sessions,
     log: app.log,
   });
@@ -91,7 +93,14 @@ export async function buildApp({
   const dispatcher = new Dispatcher(db, clock, app.log, dispatch, hub);
   const payments = new PaymentService(db, clock);
   const deliveries = new DeliveryService(db, clock, (id) => dispatcher.dispatch(id), hub, payments);
-  const riders = new RiderService(db, clock, hub, payments);
+  const notifier = new PayerNotifier({
+    db,
+    sms: smsProvider,
+    realtime: hub,
+    appOrigin: config.APP_ORIGIN,
+    log: app.log,
+  });
+  const riders = new RiderService(db, clock, hub, payments, notifier);
   const kyc = new KycService(db, config, clock, hub);
   const geoProvider = geo ?? createGeoProvider(config);
 

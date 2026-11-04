@@ -1,3 +1,4 @@
+import { finalFareView } from './finalFare.ts';
 import { randomInt } from 'node:crypto';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import type { createDeliverySchema } from '@dp/shared';
@@ -353,7 +354,11 @@ export class DeliveryService {
           locatedAt: riders.locationUpdatedAt,
         },
         riderUser: { phone: riderUsers.phoneE164, name: riderUsers.fullName },
-        fare: { status: payments.status, method: payments.method },
+        fare: {
+          status: payments.status,
+          method: payments.method,
+          verification: payments.verification,
+        },
       })
       .from(deliveries)
       .innerJoin(pricingRules, eq(pricingRules.id, deliveries.pricingRuleId))
@@ -406,7 +411,10 @@ export class DeliveryService {
               plate: r.rider.plate,
             }
           : null,
-      farePayment: r.fare ? { status: r.fare.status, method: r.fare.method } : null,
+      farePayment: r.fare
+        ? { status: r.fare.status, method: r.fare.method, verification: r.fare.verification }
+        : null,
+      finalFare: finalFareView(d),
       riderLocation:
         r.rider?.lat != null &&
         r.rider.lng != null &&

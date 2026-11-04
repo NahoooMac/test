@@ -6,6 +6,7 @@ import {
   formatPhone,
   type AdminKycDetail,
   type AdminKycRow,
+  type AdminLivenessSummary,
   type KycDocumentKind,
   type KycStatus,
 } from '@dp/shared';
@@ -280,6 +281,8 @@ function KycReview({ id }: { id: string }) {
         })}
       </div>
 
+      <LivenessPanel liveness={d.liveness} />
+
       {reviewable ? (
         <Panel className="flex flex-col gap-4 p-5">
           <h2 className="text-lg font-semibold">Decision</h2>
@@ -396,5 +399,82 @@ function Fact({ label, value }: { label: string; value: string }) {
       <p className="text-xs text-ink-3">{label}</p>
       <p className="font-medium capitalize">{value}</p>
     </div>
+  );
+}
+
+const FLAG_TEXT: Record<string, string> = {
+  static_face: 'Almost no natural movement while holding (photo or screen?)',
+  no_blink: 'No blink seen during the whole check',
+  abrupt_movement: 'A sudden jump in head angle (edited or switched video?)',
+  very_fast: 'Completed unusually fast',
+  many_failed_attempts: 'Many failed attempts before passing',
+};
+const ACTION_TEXT: Record<string, string> = {
+  straight: 'Look straight',
+  right: 'Turn right',
+  left: 'Turn left',
+  center: 'Back to centre',
+};
+
+/** The live face check behind the three face frames: what was asked, when, and what was measured. */
+function LivenessPanel({ liveness: l }: { liveness: AdminLivenessSummary | null }) {
+  if (!l) {
+    return (
+      <Notice tone="warning">
+        No live face check on record: these face photos were taken before liveness checks existed.
+        Ask for a retake of the face photos if in doubt.
+      </Notice>
+    );
+  }
+  const t = (iso: string) => new Date(iso).toLocaleTimeString('en-GB');
+  return (
+    <Panel className="flex flex-col gap-3 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-semibold">Live face check</h2>
+        <Badge tone={l.status === 'passed' ? 'success' : l.status === 'active' ? 'info' : 'warning'} dot>
+          {l.status}
+        </Badge>
+      </div>
+      <p className="text-sm text-ink-3">
+        Head movements guided and measured on the rider&rsquo;s phone; the server checked the order,
+        time limit and thresholds. This is supporting evidence, not proof: compare the frames with
+        the ID before approving.
+      </p>
+      {l.flags.length > 0 && (
+        <Notice tone="warning">
+          <span className="block font-semibold">Worth a closer look</span>
+          {l.flags.map((f) => (
+            <span key={f} className="block">
+              · {FLAG_TEXT[f] ?? f}
+            </span>
+          ))}
+        </Notice>
+      )}
+      <ol className="flex flex-col divide-y divide-line rounded-[var(--radius-md)] border border-line text-sm">
+        {l.sequence.map((a, i) => {
+          const s = l.steps[i];
+          return (
+            <li key={i} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+              <span className="font-medium">
+                {i + 1}. {ACTION_TEXT[a] ?? a}
+              </span>
+              {s ? (
+                <span className="text-ink-2 tabular">
+                  {t(s.completedAt)} · yaw {s.metrics.yawDeg}° · pitch {s.metrics.pitchDeg}° · held{' '}
+                  {(s.metrics.holdMs / 1000).toFixed(1)} s · faces {s.metrics.faceCount}
+                </span>
+              ) : (
+                <span className="text-ink-3">not completed</span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      <p className="text-xs text-ink-3">
+        Started {new Date(l.createdAt).toLocaleString('en-GB')}
+        {l.completedAt && ` · finished ${t(l.completedAt)}`} · failed attempts {l.failedAttempts}
+        {l.client && ` · ${l.client.model}`}
+      </p>
+    </Panel>
   );
 }

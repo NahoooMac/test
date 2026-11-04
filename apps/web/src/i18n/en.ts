@@ -388,8 +388,8 @@ export const en = {
       collectCash: 'Collect {{amount}} ETB ({{method}})',
       actions: {
         arrived_pickup: "I've arrived at pickup",
-        picked_up: 'Parcel picked up',
-        arrived_dropoff: "I've arrived at drop-off",
+        picked_up: 'Start ride',
+        arrived_dropoff: 'End delivery',
         delivered: 'Delivered',
         returned: 'Returned to sender',
       },

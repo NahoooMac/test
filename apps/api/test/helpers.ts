@@ -85,10 +85,60 @@ export function fakeJpeg(width = 1280, height = 960, bytes = 12_000): string {
   return b.toString('base64');
 }
 
-/** Uploads every required KYC photo for the rider and submits the application. */
+/** Metrics a real, cooperative rider produces for each liveness action. */
+export function goodLivenessMetrics(action: string) {
+  const yawDeg = action === 'right' ? 30 : action === 'left' ? -30 : 0;
+  return {
+    yawDeg,
+    pitchDeg: 2,
+    holdMs: 900,
+    faceCount: 1,
+    faceArea: 0.12,
+    faceShift: 0.05,
+    jitterDeg: 0.6,
+    maxStepDeg: 4,
+    blinks: 1,
+  };
+}
+
+/** Completes a live face check with valid steps and frames; returns the final session state. */
+export async function passLiveness(t: TestApp, cookie: string) {
+  const start = await t.app.inject({
+    method: 'POST',
+    url: '/api/rider/kyc/liveness',
+    headers: { cookie, origin: ORIGIN },
+  });
+  if (start.statusCode !== 200) throw new Error(`liveness start failed: ${start.body}`);
+  const session = start.json() as { id: string; sequence: string[] };
+  let last: unknown = null;
+  for (const [index, action] of session.sequence.entries()) {
+    t.clock.advanceSeconds(2);
+    const now = t.clock.now().getTime();
+    const res = await t.app.inject({
+      method: 'POST',
+      url: `/api/rider/kyc/liveness/${session.id}/steps`,
+      headers: { cookie, origin: ORIGIN },
+      payload: {
+        index,
+        action,
+        startedAt: new Date(now - 1500).toISOString(),
+        completedAt: new Date(now).toISOString(),
+        metrics: goodLivenessMetrics(action),
+        ...(action === 'center' ? {} : { image: fakeJpeg() }),
+        client: { userAgent: 'test', model: 'face_landmarker' },
+      },
+    });
+    if (res.statusCode !== 200) throw new Error(`liveness ${action} failed: ${res.body}`);
+    last = res.json();
+  }
+  return { session, last: last as { status: string } };
+}
+
+/** Uploads every required KYC photo (faces via the live check) and submits the application. */
 export async function submitKyc(t: TestApp, cookie: string) {
   const kyc = (await t.app.inject({ method: 'GET', url: '/api/rider/kyc', headers: { cookie } })).json();
-  for (const kind of kyc.required as string[]) {
+  await passLiveness(t, cookie);
+  for (const kind of (kyc.required as string[]).filter((k) => !k.startsWith('face_'))) {
     const res = await t.app.inject({
       method: 'PUT',
       url: `/api/rider/kyc/documents/${kind}`,

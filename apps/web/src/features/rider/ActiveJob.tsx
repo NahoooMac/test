@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { MapPin, Navigation, Phone, PhoneOff, Wallet } from 'lucide-react';
@@ -17,6 +17,9 @@ import { Badge, Button, ChoiceGroup, Notice, Panel, SwipeSlider, TextField, Time
 import { STATUS_TONE } from '../deliveries/status.ts';
 import { riderHomeKey } from './hooks.ts';
 import { NavigationView } from './NavigationView.tsx';
+import { DestinationPayment, minutesLabel } from './DestinationPayment.tsx';
+import { useRiderCopy } from './features.ts';
+import { flushRoute } from './routeRecorder.ts';
 
 const NEXT: Partial<
   Record<
@@ -52,11 +55,16 @@ export function ActiveJob({
   const [showCalls, setShowCalls] = useState(false);
   const [navigating, setNavigating] = useState(false);
 
+  const c = useRiderCopy();
   const step = useMutation({
-    mutationFn: (to: string) =>
-      api(`/rider/jobs/${job.id}/step`, { method: 'POST', body: { to, ...position } }),
+    mutationFn: async (to: string) => {
+      // The final fare uses the recorded route: upload any queued GPS fixes first.
+      if (to === 'arrived_dropoff') await flushRoute().catch(() => undefined);
+      return api(`/rider/jobs/${job.id}/step`, { method: 'POST', body: { to, ...position } });
+    },
     onSettled: refresh,
   });
+  const journeyMin = useElapsedMinutes(job.status === 'picked_up' ? job.pickedUpAt : null);
   const release = useMutation({
     mutationFn: () => api(`/rider/jobs/${job.id}/release`, { method: 'POST' }),
     onSettled: refresh,
@@ -90,15 +98,10 @@ export function ActiveJob({
     [job.canFailAt],
   );
   const failIn = useCountdown(failDeadline);
-  // The server refuses "delivered" until the fare is recorded; mirror that so the rider knows why.
-  const needsPayment = next === 'delivered' && !job.farePayment;
+  // Payment is only collected at the destination (dedicated screen below), never at pickup.
   // A failed delivery's fare is still due; it's collected when the parcel goes back to the sender.
-  // A sender's fare not recorded at pickup can still be recorded at the drop-off.
-  const collectHere =
-    (job.payer === 'sender' && job.status === 'arrived_pickup') ||
-    (job.payer === 'receiver' && job.status === 'arrived_dropoff') ||
-    job.status === 'returning' ||
-    needsPayment;
+  const needsPayment = false;
+  const collectHere = job.status === 'returning';
   const error = step.error ?? release.error ?? fail.error ?? logCall.error;
   const time = (iso: string) =>
     new Date(iso).toLocaleTimeString(i18n.language === 'am' ? 'am-ET' : 'en-GB', {
@@ -113,6 +116,80 @@ export function ActiveJob({
       ? [{ id: 'me', point: position, kind: 'rider' as const, vehicleType: job.vehicleType }]
       : []),
   ];
+
+  const unreachablePanel = job.status === 'arrived_dropoff' && (
+    <Panel className="p-4">
+      <button
+        type="button"
+        onClick={() => setShowCalls((v) => !v)}
+        className="flex w-full items-center gap-2 text-left font-semibold"
+        aria-expanded={showCalls}
+      >
+        <PhoneOff className="size-4 text-ink-3" aria-hidden />
+        {t('rider.job.unreachable')}
+      </button>
+      {showCalls && (
+        <div className="mt-3 flex flex-col gap-3">
+          <p className="text-sm text-ink-2">{t('rider.job.failRule')}</p>
+          <div className="flex flex-col gap-2">
+            {(['no_answer', 'busy', 'unreachable'] as const).map((o) => (
+              <Button
+                key={o}
+                variant="secondary"
+                className="px-2 text-sm"
+                onClick={() => logCall.mutate(o)}
+                disabled={logCall.isPending}
+              >
+                {t(`rider.job.outcomes.${o}`)}
+              </Button>
+            ))}
+          </div>
+          {job.contactAttempts.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-semibold text-ink-3 uppercase">
+                {t('rider.job.attempts')}
+              </p>
+              <Timeline
+                items={job.contactAttempts.map((a, i) => ({
+                  id: `${a.at}-${i}`,
+                  title: t(`rider.job.outcomes.${a.outcome}`),
+                  time: time(a.at),
+                  state: 'done' as const,
+                }))}
+              />
+            </div>
+          )}
+          <Button
+            variant="danger-soft"
+            block
+            onClick={() => fail.mutate()}
+            loading={fail.isPending}
+            disabled={!job.canFailAt || failIn > 0}
+          >
+            {job.canFailAt && failIn > 0
+              ? t('rider.job.failIn', { time: formatClock(failIn) })
+              : t('rider.job.fail')}
+          </Button>
+        </div>
+      )}
+    </Panel>
+  );
+
+  // At the destination: the dedicated payment screen (final price, payer, outcome, Done).
+  if (job.status === 'arrived_dropoff' && job.finalFare) {
+    return (
+      <>
+        {error && (
+          <div className="px-4 pt-4">
+            <Notice tone="danger">
+              {error instanceof ApiRequestError ? error.message : String(error)}
+            </Notice>
+          </div>
+        )}
+        <DestinationPayment job={job} unreachable={unreachablePanel} />
+      </>
+    );
+  }
 
   if (navigating) {
     return (
@@ -204,61 +281,15 @@ export function ActiveJob({
           collectHere && <PaymentPanel job={job} onDone={refresh} />
         )}
 
-        {job.status === 'arrived_dropoff' && (
-          <Panel className="p-4">
-            <button
-              type="button"
-              onClick={() => setShowCalls((v) => !v)}
-              className="flex w-full items-center gap-2 text-left font-semibold"
-              aria-expanded={showCalls}
-            >
-              <PhoneOff className="size-4 text-ink-3" aria-hidden />
-              {t('rider.job.unreachable')}
-            </button>
-            {showCalls && (
-              <div className="mt-3 flex flex-col gap-3">
-                <p className="text-sm text-ink-2">{t('rider.job.failRule')}</p>
-                <div className="flex flex-col gap-2">
-                  {(['no_answer', 'busy', 'unreachable'] as const).map((o) => (
-                    <Button
-                      key={o}
-                      variant="secondary"
-                      className="px-2 text-sm"
-                      onClick={() => logCall.mutate(o)}
-                      disabled={logCall.isPending}
-                    >
-                      {t(`rider.job.outcomes.${o}`)}
-                    </Button>
-                  ))}
-                </div>
-                {job.contactAttempts.length > 0 && (
-                  <div>
-                    <p className="mb-2 text-xs font-semibold text-ink-3 uppercase">
-                      {t('rider.job.attempts')}
-                    </p>
-                    <Timeline
-                      items={job.contactAttempts.map((a, i) => ({
-                        id: `${a.at}-${i}`,
-                        title: t(`rider.job.outcomes.${a.outcome}`),
-                        time: time(a.at),
-                        state: 'done' as const,
-                      }))}
-                    />
-                  </div>
-                )}
-                <Button
-                  variant="danger-soft"
-                  block
-                  onClick={() => fail.mutate()}
-                  loading={fail.isPending}
-                  disabled={!job.canFailAt || failIn > 0}
-                >
-                  {job.canFailAt && failIn > 0
-                    ? t('rider.job.failIn', { time: formatClock(failIn) })
-                    : t('rider.job.fail')}
-                </Button>
-              </div>
-            )}
+        {unreachablePanel}
+
+        {job.status === 'picked_up' && (
+          <Panel className="flex items-center justify-between gap-3 p-4">
+            <div>
+              <p className="text-xs font-medium tracking-wide text-ink-3 uppercase">{c.pay.journey}</p>
+              <p className="text-2xl font-bold tabular">{minutesLabel(journeyMin)}</p>
+            </div>
+            <p className="max-w-[60%] text-right text-xs text-ink-3">{c.pay.endHint}</p>
           </Panel>
         )}
 
@@ -287,7 +318,7 @@ export function ActiveJob({
               {t('rider.job.payment.needed')}
             </p>
           )}
-          {(next === 'picked_up' || next === 'delivered') && !needsPayment ? (
+          {(next === 'picked_up' || next === 'arrived_dropoff') && !needsPayment ? (
             <SwipeSlider
               label={t(`rider.job.actions.${next}`)}
               onConfirm={() => step.mutate(next)}
@@ -360,4 +391,15 @@ function PaymentPanel({ job, onDone }: { job: RiderJob; onDone: () => void }) {
       </Button>
     </Panel>
   );
+}
+
+/** Whole minutes since `since` (the journey timer), refreshed every 15 s. */
+function useElapsedMinutes(since: string | null) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!since) return;
+    const id = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(id);
+  }, [since]);
+  return since ? Math.max(0, Math.floor((now - new Date(since).getTime()) / 60_000)) : 0;
 }

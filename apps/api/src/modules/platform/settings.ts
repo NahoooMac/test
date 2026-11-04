@@ -7,7 +7,13 @@ import type { Tx } from '../../db/client.ts';
 import { platformSettings } from '../../db/schema.ts';
 import { audit } from '../admin/audit.ts';
 
-const KEYS = ['walletMinBalance', 'walletDebtLimit', 'matching', 'routeRetentionDays'] as const;
+const KEYS = [
+  'walletMinBalance',
+  'walletDebtLimit',
+  'matching',
+  'routeRetentionDays',
+  'liveness',
+] as const;
 
 // A JSON string like "20.00" can come back from jsonb as the number 20; always return "20.00".
 const etb = (v: string | number) => Number(v).toFixed(2);
@@ -23,6 +29,7 @@ export async function getSettings(db: Tx): Promise<PlatformSettings> {
     walletDebtLimit: etb(stored.walletDebtLimit ?? DEFAULT_SETTINGS.walletDebtLimit),
     matching: { ...DEFAULT_SETTINGS.matching, ...(stored.matching ?? {}) },
     routeRetentionDays: stored.routeRetentionDays ?? DEFAULT_SETTINGS.routeRetentionDays,
+    liveness: { ...DEFAULT_SETTINGS.liveness, ...(stored.liveness ?? {}) },
   };
 }
 
@@ -42,6 +49,7 @@ export async function updateSettings(
     next.walletDebtLimit = Number(changes.walletDebtLimit).toFixed(2);
   if (changes.matching) next.matching = { ...before.matching, ...changes.matching };
   if (changes.routeRetentionDays !== undefined) next.routeRetentionDays = changes.routeRetentionDays;
+  if (changes.liveness) next.liveness = { ...before.liveness, ...changes.liveness };
 
   for (const [key, value] of Object.entries(next)) {
     await db

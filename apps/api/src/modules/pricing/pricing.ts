@@ -10,6 +10,8 @@ export interface PricingRule {
   maxDistanceKm: number | null;
   commissionRate: string;
   cancellationFeeAfterArrival: string;
+  /** Per journey minute in the final fare (0 = distance only). */
+  perMinute: string;
 }
 
 export interface FareBreakdown {
@@ -50,6 +52,32 @@ export function computeFare(rule: PricingRule, km: number): FareBreakdown {
   return {
     fare: fromSantim(fare),
     commissionRate: rule.commissionRate,
+    commissionAmount: fromSantim(commission),
+    riderEarning: fromSantim(fare - commission),
+  };
+}
+
+/**
+ * Final fare at the destination: the booking's own rule applied to the distance actually
+ * travelled and the journey time, with the commission at the rate recorded on the delivery.
+ */
+export function computeFinalFare(
+  rule: Pick<PricingRule, 'baseFare' | 'perKm' | 'minimumFare' | 'perMinute'>,
+  km: number,
+  minutes: number,
+  commissionRate: string,
+): FareBreakdown {
+  const raw =
+    toSantim(rule.baseFare) +
+    Math.round(toSantim(rule.perKm) * km) +
+    Math.round(toSantim(rule.perMinute) * minutes);
+  const floored = Math.max(raw, toSantim(rule.minimumFare));
+  const fare = Math.ceil(floored / ROUND_TO_SANTIM) * ROUND_TO_SANTIM;
+  const basisPoints = Math.round(Number(commissionRate) * 10_000);
+  const commission = Math.round((fare * basisPoints) / 10_000);
+  return {
+    fare: fromSantim(fare),
+    commissionRate,
     commissionAmount: fromSantim(commission),
     riderEarning: fromSantim(fare - commission),
   };

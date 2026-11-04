@@ -5,7 +5,9 @@ import {
   KYC_STATUSES,
   adminKycDecisionSchema,
   kycUploadSchema,
+  livenessStepSchema,
   type AdminKycDetail,
+  type LivenessSession,
   type AdminKycRow,
   type RiderKyc,
 } from '@dp/shared';
@@ -57,6 +59,37 @@ export async function kycRoutes(
       const { image, capturedAt } = parseInput(kycUploadSchema, req.body);
       reply.header('Cache-Control', 'no-store');
       return kyc.upload(user.id, kind, image, capturedAt);
+    },
+  );
+
+  // Live face check: the server issues the challenge, the app reports each completed action.
+  app.post('/rider/kyc/liveness', async (req, reply): Promise<LivenessSession> => {
+    const { user } = await auth.require(req, reply, 'rider');
+    const limit = await consume(
+      db,
+      { key: `kyc:liveness1h:${user.id}`, windowSec: 3600, limit: 20 },
+      clock.now(),
+    );
+    if (!limit.allowed) throw tooManyRequests(limit.retryAfterSec);
+    reply.header('Cache-Control', 'no-store');
+    return kyc.startLiveness(user.id);
+  });
+
+  app.post<{ Params: { id: string } }>(
+    '/rider/kyc/liveness/:id/steps',
+    { bodyLimit: 1_400_000 },
+    async (req, reply) => {
+      const { user } = await auth.require(req, reply, 'rider');
+      const { id } = parseParams(idParam, req.params);
+      const limit = await consume(
+        db,
+        { key: `kyc:livestep1h:${user.id}`, windowSec: 3600, limit: 120 },
+        clock.now(),
+      );
+      if (!limit.allowed) throw tooManyRequests(limit.retryAfterSec);
+      const input = parseInput(livenessStepSchema, req.body);
+      reply.header('Cache-Control', 'no-store');
+      return kyc.livenessStep(user.id, id, input);
     },
   );
 

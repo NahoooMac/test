@@ -409,7 +409,10 @@ describe('job steps', () => {
       'delivered',
     ]);
     expect((await home(r)).job).toBeNull();
-    expect((await step('delivered')).statusCode).toBe(409);
+    // A retried "Done" is harmless: it reports the finished job instead of failing.
+    const again = await step('delivered');
+    expect(again.statusCode).toBe(200);
+    expect(again.json().status).toBe('delivered');
   });
 
   it("another rider cannot touch someone else's job", async () => {

@@ -8,6 +8,7 @@ import {
   VEHICLE_TYPES,
 } from './enums.ts';
 import { KYC_STATUSES } from './kyc.ts';
+import { finalFareSchema } from './delivery.ts';
 
 const money = z.string().regex(/^-?\d+\.\d{2}$/);
 
@@ -125,9 +126,27 @@ export const riderJobSchema = z.object({
   canFailAt: z.string().nullable(),
   /** Fare payment recorded by the rider; required before "delivered". */
   farePayment: z
-    .object({ method: z.enum(PAYMENT_METHODS), reference: z.string().nullable(), at: z.string() })
+    .object({
+      status: z.enum(['collected', 'disputed']),
+      method: z.enum(PAYMENT_METHODS),
+      reference: z.string().nullable(),
+      verification: z.enum(['not_required', 'pending', 'verified', 'rejected']).nullable(),
+      at: z.string(),
+    })
     .nullable(),
   assignedAt: z.string().nullable(),
+  /** When the parcel was picked up (journey timer start). */
+  pickedUpAt: z.string().nullable(),
+  /** Set when the rider ends the delivery at the destination. */
+  finalFare: finalFareSchema.nullable(),
+  /** When the payer was sent the final price by SMS (null: not sent / failed). */
+  payerNotifiedAt: z.string().nullable(),
+  /** The person who pays, chosen at booking (never changed): who the rider contacts for payment. */
+  payerContact: z.object({
+    role: z.enum(PAYERS),
+    name: z.string().nullable(),
+    phone: z.string(),
+  }),
 });
 export type RiderJob = z.infer<typeof riderJobSchema>;
 

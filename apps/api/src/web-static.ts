@@ -40,13 +40,17 @@ const YANDEX = [
 // Road routes and turn-by-turn steps (booking route line, rider in-app navigation).
 const ROUTING = ['https://router.project-osrm.org'];
 
+// Rider KYC face check: the MediaPipe face model (the WASM runtime itself is served from here).
+const FACE_MODEL = ['https://storage.googleapis.com'];
+
 export const WEB_CSP = [
   "default-src 'self'",
-  `script-src 'self' ${YANDEX.join(' ')}`,
+  // 'wasm-unsafe-eval' lets the self-hosted face-detection WebAssembly compile; no JS eval.
+  `script-src 'self' 'wasm-unsafe-eval' ${YANDEX.join(' ')}`,
   // Yandex positions map elements with inline styles; React uses style attributes too.
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${YANDEX.join(' ')}`,
-  `connect-src 'self' ${[...YANDEX, ...ROUTING].join(' ')}`,
+  `connect-src 'self' ${[...YANDEX, ...ROUTING, ...FACE_MODEL].join(' ')}`,
   "font-src 'self' data:",
   "worker-src 'self' blob:",
   "object-src 'none'",

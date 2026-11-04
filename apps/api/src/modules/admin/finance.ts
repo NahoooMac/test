@@ -1,7 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { z } from 'zod';
-import { pricingRuleInputSchema, resolvePaymentSchema, settlementSchema } from '@dp/shared';
+import {
+  pricingRuleInputSchema,
+  resolvePaymentSchema,
+  settlementSchema,
+  verifyPaymentSchema,
+} from '@dp/shared';
 import type { Db } from '../../db/client.ts';
 import { pricingRules, riders, users } from '../../db/schema.ts';
 import type { Clock } from '../../shared/clock.ts';
@@ -135,6 +140,23 @@ export async function adminFinanceRoutes(
     return reply.status(204).send();
   });
 
+  // Independent check of a Telebirr / CBE Birr payment against the statement (audited).
+  app.post<{ Params: { id: string } }>('/admin/payments/:id/verify', async (req, reply) => {
+    const { user: admin } = await auth.require(req, reply, 'admin');
+    if (!isUuid(req.params.id)) throw new AppError(404, 'NOT_FOUND', 'Payment not found.');
+    const { decision, note } = parseInput(verifyPaymentSchema, req.body);
+    const row = await payments.verify(req.params.id, admin.id, decision, note);
+    await audit(
+      db,
+      admin.id,
+      `payment.${decision === 'verify' ? 'verified' : 'verification_rejected'}`,
+      { type: 'delivery', id: row.deliveryId },
+      { paymentId: row.id, amount: row.amount, method: row.method, reference: row.reference, note },
+    );
+    await realtime.deliveryChanged(row.deliveryId);
+    return reply.status(204).send();
+  });
+
   // ── Pricing ───────────────────────────────────────────────────────────────
 
   app.get('/admin/pricing', async (req, reply) => {
@@ -154,6 +176,7 @@ export async function adminFinanceRoutes(
       maxDistanceKm: r.maxDistanceKm,
       commissionRate: r.commissionRate,
       cancellationFeeAfterArrival: r.cancellationFeeAfterArrival,
+      perMinute: r.perMinute,
       effectiveFrom: r.effectiveFrom.toISOString(),
       effectiveTo: r.effectiveTo?.toISOString() ?? null,
       current: r.effectiveTo === null,
@@ -183,6 +206,7 @@ export async function adminFinanceRoutes(
           maxDistanceKm: input.maxDistanceKm,
           commissionRate: input.commissionRate.toFixed(4),
           cancellationFeeAfterArrival: Number(input.cancellationFeeAfterArrival).toFixed(2),
+          perMinute: Number(input.perMinute).toFixed(2),
           effectiveFrom: now,
           createdBy: admin.id,
         })

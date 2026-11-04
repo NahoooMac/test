@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { ACTIVE_RIDER_STATUSES, type PublicTracking } from '@dp/shared';
 import type { Db } from '../../db/client.ts';
-import { deliveries, deliveryEvents, riders, users } from '../../db/schema.ts';
+import { deliveries, deliveryEvents, payments, riders, users } from '../../db/schema.ts';
+import { finalFareView } from '../deliveries/finalFare.ts';
 import type { Clock } from '../../shared/clock.ts';
 import { AppError, tooManyRequests } from '../../shared/errors.ts';
 import { consume } from '../../shared/rate-limit.ts';
@@ -79,6 +80,11 @@ async function publicView(db: Db, code: string): Promise<PublicTracking> {
     .limit(1);
   if (!row) throw notFound;
   const d = row.d;
+  const [fare] = await db
+    .select({ status: payments.status })
+    .from(payments)
+    .where(and(eq(payments.deliveryId, d.id), eq(payments.kind, 'fare')));
+  const finalFare = finalFareView(d);
   const events = await db
     .select({ status: deliveryEvents.toStatus, at: deliveryEvents.createdAt })
     .from(deliveryEvents)
@@ -88,6 +94,8 @@ async function publicView(db: Db, code: string): Promise<PublicTracking> {
   return {
     code: d.publicCode,
     status: d.status,
+    // The amount to pay, once known (no names or phone numbers): the receiver's view of it.
+    payment: finalFare ? { payer: d.payer, finalFare, status: fare?.status ?? 'due' } : null,
     vehicleType: d.vehicleType,
     etaMin: d.etaMin,
     pickup: {

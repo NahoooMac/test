@@ -122,7 +122,7 @@ describe('fare payments', () => {
     const c = await customer();
     const d = await book(c);
     await acceptCurrent(r);
-    await step(r, d.id, 'arrived_pickup');
+    for (const s of ['arrived_pickup', 'picked_up', 'arrived_dropoff']) await step(r, d.id, s);
     const results = await Promise.all([
       pay(r, d.id, 'telebirr', 'TB-123'),
       pay(r, d.id, 'telebirr', 'TB-123'),
@@ -131,10 +131,12 @@ describe('fare payments', () => {
     expect(results.every((x) => x.statusCode === 200)).toBe(true);
     const rows = await t.database.db.select().from(payments).where(eq(payments.deliveryId, d.id));
     expect(rows).toHaveLength(1);
+    const [final] = await t.database.db.select().from(deliveries).where(eq(deliveries.id, d.id));
     expect(rows[0]).toMatchObject({
       kind: 'fare',
       status: 'collected',
-      amount: d.fare,
+      amount: final!.fareAmount,
+      verification: 'pending',
       method: 'telebirr',
       reference: 'TB-123',
     });
@@ -142,8 +144,6 @@ describe('fare payments', () => {
       t.database.db.select().from(riderLedger).where(eq(riderLedger.deliveryId, d.id));
     // Recording the fare is not completion: nothing is deducted yet.
     expect(await ledgerFor()).toHaveLength(0);
-    await step(r, d.id, 'picked_up');
-    await step(r, d.id, 'arrived_dropoff');
     await Promise.all([step(r, d.id, 'delivered'), step(r, d.id, 'delivered')]);
     const ledger = await ledgerFor();
     expect(ledger).toHaveLength(1);
@@ -151,20 +151,28 @@ describe('fare payments', () => {
     expect(ledger[0]!).toMatchObject({ type: 'commission', amount: row!.commissionAmount });
 
     const mine = (await call('GET', `/api/deliveries/${d.id}`, c.cookie)).json();
-    expect(mine.farePayment).toEqual({ status: 'collected', method: 'telebirr' });
+    expect(mine.farePayment).toEqual({
+      status: 'collected',
+      method: 'telebirr',
+      verification: 'pending',
+    });
   });
 
-  it('a receiver-paid fare cannot be recorded at the pickup', async () => {
-    const r = await rider();
-    const d = await book(await customer(), 'receiver');
-    await acceptCurrent(r);
-    await step(r, d.id, 'arrived_pickup');
-    const early = await pay(r, d.id);
-    expect(early.statusCode).toBe(409);
-    expect(early.json().error.code).toBe('PAYMENT_NOT_ALLOWED');
-    await step(r, d.id, 'picked_up');
-    await step(r, d.id, 'arrived_dropoff');
-    expect((await pay(r, d.id)).statusCode).toBe(200);
+  it('no fare is collected before the destination, whoever pays', async () => {
+    for (const payer of ['sender', 'receiver'] as const) {
+      const r = await rider();
+      const d = await book(await customer(), payer);
+      await acceptCurrent(r);
+      await step(r, d.id, 'arrived_pickup');
+      const early = await pay(r, d.id, 'cash');
+      expect(early.statusCode).toBe(409);
+      expect(early.json().error.code).toBe('PAYMENT_NOT_ALLOWED');
+      await step(r, d.id, 'picked_up');
+      expect((await pay(r, d.id, 'cash')).json().error.code).toBe('PAYMENT_NOT_ALLOWED');
+      await step(r, d.id, 'arrived_dropoff');
+      expect((await pay(r, d.id, 'cash')).statusCode).toBe(200);
+      await step(r, d.id, 'delivered');
+    }
   });
 
   it('the fare can still be recorded after a failed delivery is returned', async () => {

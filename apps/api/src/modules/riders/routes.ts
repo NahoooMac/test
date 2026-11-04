@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import {
   contactAttemptSchema,
+  completeDeliverySchema,
   recordPaymentSchema,
   riderApplySchema,
   riderLocationSchema,
@@ -101,8 +102,26 @@ export async function riderRoutes(
 
   app.post<IdParams>('/rider/jobs/:id/payment', async (req, reply): Promise<RiderJob> => {
     const { user } = await auth.require(req, reply, 'rider');
-    const { method, reference } = parseInput(recordPaymentSchema, req.body);
-    return riders.recordFarePayment(user.id, req.params.id, method, reference);
+    const { method, reference, outcome, note } = parseInput(recordPaymentSchema, req.body);
+    return riders.recordFarePayment(user.id, req.params.id, method, reference, outcome, note);
+  });
+
+  // "Done": payment recorded and parcel handed over. Idempotent (double taps, network retries).
+  app.post<IdParams>('/rider/jobs/:id/complete', async (req, reply): Promise<RiderJob> => {
+    const { user } = await auth.require(req, reply, 'rider');
+    parseInput(completeDeliverySchema, req.body);
+    return riders.complete(user.id, req.params.id);
+  });
+
+  app.post<IdParams>('/rider/jobs/:id/final-price/resend', async (req, reply) => {
+    const { user } = await auth.require(req, reply, 'rider');
+    const limit = await consume(
+      db,
+      { key: `rider:priceSms:${req.params.id}`, windowSec: 600, limit: 3 },
+      clock.now(),
+    );
+    if (!limit.allowed) throw tooManyRequests(limit.retryAfterSec);
+    return riders.resendFinalPrice(user.id, req.params.id);
   });
 
   app.get('/rider/ledger', async (req, reply) => {

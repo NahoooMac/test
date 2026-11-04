@@ -30,6 +30,8 @@ import { currentRules } from '../pricing/repo.ts';
 import { chargeCommission } from '../wallet/wallet.ts';
 import { assertRiderCanTakeJob } from './eligibility.ts';
 import { claimFromPool } from './pool.ts';
+import { finalFareView, finalizeFare } from '../deliveries/finalFare.ts';
+import { payerTarget, type PayerNotifier } from '../deliveries/payerNotice.ts';
 import { awardCompletion, ensureStartingPoints, penalizeRiderCancellation } from './points.ts';
 
 type DeliveryRow = typeof deliveries.$inferSelect;
@@ -44,12 +46,20 @@ export class RiderService {
   private readonly realtime: Realtime;
 
   private readonly payments: PaymentService;
+  private readonly notifier: PayerNotifier | null;
 
-  constructor(db: Db, clock: Clock, realtime: Realtime = noopRealtime, payments?: PaymentService) {
+  constructor(
+    db: Db,
+    clock: Clock,
+    realtime: Realtime = noopRealtime,
+    payments?: PaymentService,
+    notifier?: PayerNotifier,
+  ) {
     this.db = db;
     this.clock = clock;
     this.realtime = realtime;
     this.payments = payments ?? new PaymentService(db, clock);
+    this.notifier = notifier ?? null;
   }
 
   // ── Application ────────────────────────────────────────────────────────────
@@ -229,6 +239,12 @@ export class RiderService {
   }
 
   private async toJob(d: DeliveryRow): Promise<RiderJob> {
+    // A job that reached the destination before final fares existed gets one now (once).
+    if (d.status === 'arrived_dropoff' && !d.fareFinalizedAt) {
+      const now = this.clock.now();
+      await this.db.transaction((tx) => finalizeFare(tx, d, now));
+      [d] = await this.db.select().from(deliveries).where(eq(deliveries.id, d.id)) as [DeliveryRow];
+    }
     const attempts = await this.db
       .select()
       .from(contactAttempts)
@@ -268,6 +284,13 @@ export class RiderService {
         outcome: a.outcome,
       })),
       farePayment: await this.farePaymentView(d.id),
+      pickedUpAt: d.pickedUpAt?.toISOString() ?? null,
+      finalFare: finalFareView(d),
+      payerNotifiedAt: d.payerNotifiedAt?.toISOString() ?? null,
+      payerContact: await (async () => {
+        const p = await payerTarget(this.db, d);
+        return { role: p.role, name: p.name, phone: p.phone };
+      })(),
       canFailAt:
         failAvailableAt(
           attempts.filter((a) => a.outcome !== 'answered').map((a) => a.attemptedAt),
@@ -360,29 +383,68 @@ export class RiderService {
     to: DeliveryStatus,
     at?: { lat?: number | undefined; lng?: number | undefined },
   ): Promise<RiderJob> {
+    if (to === 'delivered') return this.complete(userId, deliveryId);
     const d = await this.ownJob(userId, deliveryId);
     if (!canTransition(d.status, to, 'rider')) {
       throw new AppError(409, 'INVALID_STEP', `Cannot go from ${d.status} to ${to}.`);
     }
     if (to === 'requested') return this.release(userId, deliveryId);
-    if (to === 'delivered') {
-      const paid = await this.payments.farePayment(d.id);
-      if (paid?.status !== 'collected') {
-        throw new AppError(
-          409,
-          'PAYMENT_REQUIRED',
-          'Record how the fare was paid before marking it delivered.',
-        );
-      }
-    }
+    // "End delivery": the final fare is calculated from the actual route and journey time in the
+    // same transaction as the status change, then the selected payer is told the price.
+    const ending = to === 'arrived_dropoff';
     await this.transition(d, to, 'rider', userId, at, async (tx, now) => {
-      if (to !== 'delivered') return;
-      // Same transaction as the status change: never "delivered" without its commission and
-      // point, and never twice (unique indexes make a retry a no-op).
-      await chargeCommission(tx, { ...d, riderId: userId }, now);
-      await awardCompletion(tx, userId, d.id, now);
+      if (ending) await finalizeFare(tx, d, now);
     });
+    if (ending) await this.notifier?.finalPrice(d.id, this.clock.now());
     return this.toJob((await this.ownJob(userId, deliveryId, true))!);
+  }
+
+  /**
+   * The rider's "Done": payment outcome recorded, parcel handed over. Completes the delivery and,
+   * in the same transaction, deducts the commission from the wallet and awards the +1 point (both
+   * once-only by unique index). Safe to repeat: a retry after success returns the finished job.
+   */
+  async complete(userId: string, deliveryId: string): Promise<RiderJob> {
+    const d = await this.ownJob(userId, deliveryId, true);
+    if (d.status === 'delivered') return this.toJob(d);
+    if (d.status !== 'arrived_dropoff') {
+      throw new AppError(409, 'INVALID_STEP', 'End the delivery at the destination first.');
+    }
+    if (!d.fareFinalizedAt) {
+      throw new AppError(409, 'FARE_NOT_FINAL', 'The final price has not been calculated yet.');
+    }
+    const paid = await this.payments.farePayment(d.id);
+    if (paid?.status !== 'collected' && paid?.status !== 'disputed') {
+      throw new AppError(
+        409,
+        'PAYMENT_REQUIRED',
+        'Record the payment before handing over the parcel and pressing Done.',
+      );
+    }
+    try {
+      await this.transition(d, 'delivered', 'rider', userId, undefined, async (tx, now) => {
+        // Same transaction as the status change: never "delivered" without its commission and
+        // point, and never twice (unique indexes make a retry a no-op).
+        await chargeCommission(tx, { ...d, riderId: userId }, now);
+        await awardCompletion(tx, userId, d.id, now);
+      });
+    } catch (err) {
+      // A double tap or network retry raced the first request: report the finished job.
+      const [now] = await this.db.select().from(deliveries).where(eq(deliveries.id, d.id));
+      if (now?.status === 'delivered' && now.riderId === userId) return this.toJob(now);
+      throw err;
+    }
+    return this.toJob((await this.ownJob(userId, deliveryId, true))!);
+  }
+
+  /** Re-sends the final price SMS to the payer (e.g. the first one failed). */
+  async resendFinalPrice(userId: string, deliveryId: string) {
+    const d = await this.ownJob(userId, deliveryId);
+    if (d.status !== 'arrived_dropoff' || !d.fareFinalizedAt) {
+      throw new AppError(409, 'FARE_NOT_FINAL', 'The final price has not been calculated yet.');
+    }
+    await this.db.update(deliveries).set({ payerNotifiedAt: null }).where(eq(deliveries.id, d.id));
+    return { sent: (await this.notifier?.finalPrice(d.id, this.clock.now())) ?? false };
   }
 
   /** Rider gives the job back before reaching pickup; it is re-offered to someone else. */
@@ -495,9 +557,11 @@ export class RiderService {
     deliveryId: string,
     method: 'cash' | 'telebirr' | 'cbe_birr',
     reference: string | undefined,
+    outcome: 'collected' | 'disputed' = 'collected',
+    note?: string,
   ): Promise<RiderJob> {
     const d = await this.ownJob(userId, deliveryId, true);
-    await this.payments.recordFare(d, userId, method, reference);
+    await this.payments.recordFare(d, userId, method, reference, outcome, note);
     await this.realtime.deliveryChanged(d.id);
     return this.toJob(d);
   }
@@ -515,8 +579,14 @@ export class RiderService {
 
   private async farePaymentView(deliveryId: string) {
     const p = await this.payments.farePayment(deliveryId);
-    return p?.status === 'collected' && p.method && p.collectedAt
-      ? { method: p.method, reference: p.reference, at: p.collectedAt.toISOString() }
+    return (p?.status === 'collected' || p?.status === 'disputed') && p.method
+      ? {
+          status: p.status,
+          method: p.method,
+          reference: p.reference,
+          verification: p.verification,
+          at: (p.collectedAt ?? p.updatedAt).toISOString(),
+        }
       : null;
   }
 

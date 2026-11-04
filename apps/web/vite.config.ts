@@ -2,7 +2,27 @@ import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import basicSsl from '@vitejs/plugin-basic-ssl';
+import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 import { BRAND_LOADER_CSS, brandLoaderSvg, splitName } from './src/ui/brandLoaderMarkup.ts';
+
+/**
+ * Serves MediaPipe's face-landmark WASM runtime from our own origin (public/mediapipe), copied from
+ * the pinned npm package, so the rider's camera check does not load code from a third party.
+ */
+const mediapipeWasm: Plugin = {
+  name: 'mediapipe-wasm',
+  buildStart() {
+    const require = createRequire(import.meta.url);
+    const from = join(dirname(require.resolve('@mediapipe/tasks-vision')), 'wasm');
+    const to = join(process.cwd(), 'public', 'mediapipe');
+    mkdirSync(to, { recursive: true });
+    for (const f of readdirSync(from)) {
+      if (!existsSync(join(to, f))) copyFileSync(join(from, f), join(to, f));
+    }
+  },
+};
 
 // Dev only: phones have no console, so print startup errors on the page instead of a blank screen.
 const phoneErrors: Plugin = {
@@ -79,6 +99,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     tailwindcss(),
+    mediapipeWasm,
     phoneErrors,
     splash(loadEnv(mode, process.cwd(), 'VITE_').VITE_APP_NAME || 'Courier'),
     ...(mode === 'lan-https' ? [basicSsl()] : []),

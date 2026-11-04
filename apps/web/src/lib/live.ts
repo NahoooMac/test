@@ -64,6 +64,10 @@ function handle(queryClient: QueryClient, type: string, data: Record<string, unk
     case 'rider':
       void queryClient.invalidateQueries({ queryKey: ['rider'] });
       break;
+    case 'notice':
+      // A message for this user (e.g. the final price to pay): shown by <PaymentNotice />.
+      window.dispatchEvent(new CustomEvent('dp:notice', { detail: data }));
+      break;
     case 'ops':
       if (!data.hello) {
         void queryClient.invalidateQueries({ queryKey: ['admin', 'ops'] });
@@ -82,7 +86,7 @@ export function useLiveEvents(enabled: boolean) {
     const source = new EventSource('/api/events');
     source.onopen = () => setConnected(true);
     source.onerror = () => setConnected(false); // the browser retries on its own
-    const types = ['delivery', 'location', 'offer', 'rider', 'ops'];
+    const types = ['delivery', 'location', 'offer', 'rider', 'ops', 'notice'];
     const onEvent = (ev: MessageEvent<string>) => {
       try {
         handle(queryClient, ev.type, JSON.parse(ev.data) as Record<string, unknown>);

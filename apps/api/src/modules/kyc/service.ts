@@ -12,8 +12,14 @@ import { and, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
 import {
   KYC_EDITABLE,
   KYC_MAX_IMAGE_BYTES,
+  LIVENESS_FRAME,
+  LIVENESS_KINDS,
   kycRequiredKinds,
   type AdminKycDetail,
+  type AdminLivenessSummary,
+  type LivenessSession,
+  type LivenessStepRecord,
+  type livenessStepSchema,
   type AdminKycRow,
   type KycDocumentKind,
   type KycStatus,
@@ -23,7 +29,9 @@ import type { z } from 'zod';
 import type { adminKycDecisionSchema } from '@dp/shared';
 import type { Config } from '../../config/env.ts';
 import type { Db } from '../../db/client.ts';
-import { adminAuditLog, kycDocuments, riders, users } from '../../db/schema.ts';
+import { adminAuditLog, kycDocuments, kycLivenessSessions, riders, users } from '../../db/schema.ts';
+import { getSettings } from '../platform/settings.ts';
+import { MIN_SESSION_MS, newSequence, rejectReason, reviewFlags } from './liveness.ts';
 import type { Clock } from '../../shared/clock.ts';
 import { AppError } from '../../shared/errors.ts';
 import { audit } from '../admin/audit.ts';
@@ -131,6 +139,149 @@ export class KycService {
       })),
       submittedAt: r.kycSubmittedAt?.toISOString() ?? null,
       reviewedAt: r.kycReviewedAt?.toISOString() ?? null,
+      livenessPassed: await this.facesFromPassedSession(userId),
+    };
+  }
+
+  /** True when every face frame on file came from one passed liveness session. */
+  private async facesFromPassedSession(riderId: string): Promise<boolean> {
+    const faces = await this.db
+      .select({ session: kycDocuments.livenessSessionId })
+      .from(kycDocuments)
+      .where(and(eq(kycDocuments.riderId, riderId), inArray(kycDocuments.kind, [...LIVENESS_KINDS])));
+    const ids = new Set(faces.map((f) => f.session));
+    if (faces.length !== LIVENESS_KINDS.length || ids.size !== 1 || ids.has(null)) return false;
+    const [s] = await this.db
+      .select({ status: kycLivenessSessions.status })
+      .from(kycLivenessSessions)
+      .where(eq(kycLivenessSessions.id, [...ids][0]!));
+    return s?.status === 'passed';
+  }
+
+  // ── liveness ───────────────────────────────────────────────────────────────
+
+  /**
+   * Issues a new face-movement challenge: randomized order, short expiry, single use. Any open
+   * session is superseded, so an old challenge can never be answered later.
+   */
+  async startLiveness(userId: string): Promise<LivenessSession> {
+    const r = await this.rider(userId);
+    if (!KYC_EDITABLE.includes(r.kycStatus)) throw locked();
+    const { liveness: thresholds } = await getSettings(this.db);
+    const now = this.clock.now();
+    const sequence = newSequence();
+    const expiresAt = new Date(now.getTime() + thresholds.sessionSeconds * 1000);
+    const [row] = await this.db.transaction(async (tx) => {
+      await tx
+        .update(kycLivenessSessions)
+        .set({ status: 'superseded' })
+        .where(and(eq(kycLivenessSessions.riderId, userId), eq(kycLivenessSessions.status, 'active')));
+      return tx
+        .insert(kycLivenessSessions)
+        .values({ riderId: userId, sequence, thresholds, expiresAt, createdAt: now })
+        .returning();
+    });
+    return { id: row!.id, sequence, expiresAt: expiresAt.toISOString(), thresholds, completed: 0 };
+  }
+
+  /**
+   * One completed action, in order, inside the session's time limit. Face actions carry the frame
+   * captured while the pose was held; it is checked like any capture and stored encrypted, bound
+   * to this session. A rejected attempt can be retried until the session expires.
+   */
+  async livenessStep(
+    userId: string,
+    sessionId: string,
+    input: z.output<typeof livenessStepSchema>,
+  ): Promise<LivenessSession & { status: string }> {
+    const r = await this.rider(userId);
+    if (!KYC_EDITABLE.includes(r.kycStatus)) throw locked();
+    const [s] = await this.db
+      .select()
+      .from(kycLivenessSessions)
+      .where(and(eq(kycLivenessSessions.id, sessionId), eq(kycLivenessSessions.riderId, userId)));
+    if (!s) throw new AppError(404, 'NOT_FOUND', 'Start the face check again.');
+    const now = this.clock.now();
+    if (s.status !== 'active') {
+      throw new AppError(409, 'LIVENESS_CLOSED', 'This face check is finished. Start a new one.');
+    }
+    if (now > s.expiresAt) {
+      await this.db.update(kycLivenessSessions).set({ status: 'expired' }).where(eq(kycLivenessSessions.id, s.id));
+      throw new AppError(409, 'LIVENESS_EXPIRED', 'Time ran out. Start the face check again.');
+    }
+    const expected = s.sequence[s.steps.length];
+    if (input.index !== s.steps.length || input.action !== expected) {
+      throw new AppError(409, 'LIVENESS_ORDER', 'Follow the steps in the order shown.');
+    }
+    const started = new Date(input.startedAt);
+    const completed = new Date(input.completedAt);
+    const prevEnd = s.steps.at(-1) ? new Date(s.steps.at(-1)!.completedAt) : s.createdAt;
+    // Times come from the device: they must sit inside this session and follow the last step.
+    const timesOk =
+      started >= new Date(s.createdAt.getTime() - 5000) &&
+      started >= new Date(prevEnd.getTime() - 1000) &&
+      completed >= started &&
+      completed <= new Date(now.getTime() + 5000);
+    const reason = timesOk ? rejectReason(input.action, input.metrics, s.thresholds) : 'Device clock mismatch. Try again.';
+    if (reason) {
+      const failedAttempts = s.failedAttempts + 1;
+      await this.db
+        .update(kycLivenessSessions)
+        .set({ failedAttempts, ...(failedAttempts >= 15 ? { status: 'failed' as const } : {}) })
+        .where(eq(kycLivenessSessions.id, s.id));
+      throw new AppError(422, 'LIVENESS_REJECTED', reason, { details: { failedAttempts } });
+    }
+    const kind = LIVENESS_FRAME[input.action];
+    if (kind) {
+      if (!input.image) badImageThrow('The camera frame is missing.');
+      await this.storeCapture(userId, kind, input.image!, input.completedAt, s.id);
+    }
+    const step: LivenessStepRecord = {
+      index: input.index,
+      action: input.action,
+      startedAt: started.toISOString(),
+      completedAt: completed.toISOString(),
+      receivedAt: now.toISOString(),
+      metrics: input.metrics,
+    };
+    const steps = [...s.steps, step];
+    const last = steps.length === s.sequence.length;
+    const tooFast =
+      last && completed.getTime() - new Date(steps[0]!.startedAt).getTime() < MIN_SESSION_MS;
+    const status = last ? (tooFast ? 'failed' : 'passed') : 'active';
+    await this.db
+      .update(kycLivenessSessions)
+      .set({
+        steps,
+        status,
+        ...(last ? { completedAt: now } : {}),
+        ...(input.client && !s.client ? { client: input.client } : {}),
+      })
+      .where(and(eq(kycLivenessSessions.id, s.id), eq(kycLivenessSessions.status, 'active')));
+    if (tooFast) {
+      throw new AppError(422, 'LIVENESS_REJECTED', 'That was too fast. Start again and follow each step.');
+    }
+    return {
+      id: s.id,
+      sequence: s.sequence,
+      expiresAt: s.expiresAt.toISOString(),
+      thresholds: s.thresholds,
+      completed: steps.length,
+      status,
+    };
+  }
+
+  private livenessSummary(s: typeof kycLivenessSessions.$inferSelect): AdminLivenessSummary {
+    return {
+      id: s.id,
+      status: s.status,
+      sequence: s.sequence,
+      steps: s.steps,
+      createdAt: s.createdAt.toISOString(),
+      completedAt: s.completedAt?.toISOString() ?? null,
+      failedAttempts: s.failedAttempts,
+      client: s.client ?? null,
+      flags: reviewFlags(s.steps, s.failedAttempts),
     };
   }
 
@@ -146,6 +297,21 @@ export class KycService {
     if (!kycRequiredKinds(r.vehicleType).includes(kind)) {
       throw new AppError(400, 'VALIDATION_FAILED', 'This photo is not needed for your vehicle.');
     }
+    if (LIVENESS_KINDS.includes(kind)) {
+      // Face pictures only come from the live face check, never from an uploaded photo.
+      throw new AppError(400, 'LIVENESS_REQUIRED', 'Use the live face check for your face photos.');
+    }
+    await this.storeCapture(userId, kind, imageBase64, capturedAt, null);
+    return this.view(userId);
+  }
+
+  private async storeCapture(
+    userId: string,
+    kind: KycDocumentKind,
+    imageBase64: string,
+    capturedAt: string | undefined,
+    livenessSessionId: string | null,
+  ) {
     const data = Buffer.from(imageBase64.replace(/^data:image\/jpeg;base64,/, ''), 'base64');
     if (data.length > KYC_MAX_IMAGE_BYTES) badImageThrow('The photo is too large.');
     if (data.length < MIN_IMAGE_BYTES) badImageThrow('The photo is too small or blank. Retake it.');
@@ -162,13 +328,13 @@ export class KycService {
       bytes: data.length,
       sha256: createHash('sha256').update(data).digest('hex'),
       capturedAt: capturedAt ? new Date(capturedAt) : null,
+      livenessSessionId,
       createdAt: now,
     };
     await this.db
       .insert(kycDocuments)
       .values({ riderId: userId, kind, ...row })
       .onConflictDoUpdate({ target: [kycDocuments.riderId, kycDocuments.kind], set: row });
-    return this.view(userId);
   }
 
   /** Sends the application for review once every required photo (and every retake) is in. */
@@ -186,6 +352,11 @@ export class KycService {
     if (missing.length || stale.length) {
       throw new AppError(409, 'KYC_INCOMPLETE', 'Some photos are still missing.', {
         details: { missing: [...new Set([...missing, ...stale])] },
+      });
+    }
+    if (!(await this.facesFromPassedSession(userId))) {
+      throw new AppError(409, 'LIVENESS_REQUIRED', 'Complete the live face check first.', {
+        details: { missing: [...LIVENESS_KINDS] },
       });
     }
     const now = this.clock.now();
@@ -269,6 +440,15 @@ export class KycService {
         uploadedAt: c.createdAt.toISOString(),
       })),
       accountCreatedAt: found.u.at.toISOString(),
+      liveness: await (async () => {
+        const [s] = await this.db
+          .select()
+          .from(kycLivenessSessions)
+          .where(eq(kycLivenessSessions.riderId, riderId))
+          .orderBy(desc(kycLivenessSessions.createdAt))
+          .limit(1);
+        return s ? this.livenessSummary(s) : null;
+      })(),
       history: history.map((h) => ({
         action: h.action,
         at: h.at.toISOString(),
@@ -325,8 +505,9 @@ export class KycService {
           })
           .where(and(eq(riders.userId, riderId), eq(riders.kycStatus, 'pending_review')));
       } else if (input.decision === 'reject') {
-        // The rider starts again; the rejected photos aren't kept.
+        // The rider starts again; the rejected photos (and face-check records) aren't kept.
         await tx.delete(kycDocuments).where(eq(kycDocuments.riderId, riderId));
+        await tx.delete(kycLivenessSessions).where(eq(kycLivenessSessions.riderId, riderId));
         await tx
           .update(riders)
           .set({ ...base, kycStatus: 'rejected', kycReason: input.reason!, kycRetake: [] })
@@ -397,6 +578,8 @@ export class KycService {
         ),
       )
       .returning({ id: kycDocuments.riderId });
+    // Face-check records follow the same retention as the frames they describe.
+    await this.db.delete(kycLivenessSessions).where(lt(kycLivenessSessions.createdAt, cutoff));
     return removed.length;
   }
 }

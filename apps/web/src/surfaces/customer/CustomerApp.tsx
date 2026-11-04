@@ -1,3 +1,4 @@
+import { PaymentNotice } from '../../features/deliveries/PaymentNotice.tsx';
 import { Link, Outlet, Route, Routes } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, ChevronRight, Home, MapPin, Package, ReceiptText, Search, UserRound } from 'lucide-react';
@@ -270,6 +271,7 @@ function CustomerShell() {
   const { t } = useTranslation();
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col">
+      <PaymentNotice />
       <main className="flex-1">
         <Outlet />
       </main>

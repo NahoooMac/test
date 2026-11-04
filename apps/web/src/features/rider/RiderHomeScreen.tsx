@@ -21,7 +21,6 @@ import {
 import { MapView } from '../../map/MapView.tsx';
 import { ActiveJob } from './ActiveJob.tsx';
 import { ApplyForm } from './ApplyForm.tsx';
-import { FindingRadar } from './FindingRadar.tsx';
 import { KycFlow } from './kyc/KycFlow.tsx';
 import { OfferCard } from './OfferCard.tsx';
 import {
@@ -193,11 +192,23 @@ export function RiderHomeScreen() {
           center={here ?? ADDIS_CENTER}
           zoom={here ? 16 : 13}
           recenterKey={recenter}
-          markers={here ? [{ id: 'me', point: here, kind: 'rider', heading: gps.heading }] : []}
+          markers={
+            here
+              ? [
+                  {
+                    id: 'me',
+                    point: here,
+                    kind: 'rider',
+                    heading: gps.heading,
+                    vehicleType: profile.vehicleType,
+                    radar: online,
+                  },
+                ]
+              : []
+          }
           zoomControls={false}
           scrollZoom
         />
-        {online && <FindingRadar />}
 
         <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-4">
           <span

@@ -21,6 +21,7 @@ import { Row } from '../booking/BookingFlow.tsx';
 import { isOpen, stageIndex } from './status.ts';
 import { TrackingSheet } from './TrackingSheet.tsx';
 import { RateRider } from './RateRider.tsx';
+import { FinalPriceCard } from './FinalPriceCard.tsx';
 
 export function DeliveryDetail() {
   const { t, i18n } = useTranslation();
@@ -144,6 +145,15 @@ export function DeliveryDetail() {
 
       <div className="flex flex-col gap-5 px-4 pt-5">
         {d.status === 'requested' && <Notice tone="info">{t('delivery.waiting')}</Notice>}
+        {d.finalFare && (
+          <FinalPriceCard
+            code={d.code}
+            payer={d.payer}
+            finalFare={d.finalFare}
+            status={d.farePayment?.status ?? 'due'}
+            delivered={d.status === 'delivered'}
+          />
+        )}
         {d.status === 'delivered' && d.rider && <RateRider deliveryId={d.id} />}
         {isOpen(d.status) && (
           <Button
@@ -187,7 +197,7 @@ export function DeliveryDetail() {
             />
           ) : null}
           <Row
-            label={t('booking.fare')}
+            label={d.finalFare ? t('booking.fare') : 'Estimated fare'}
             value={<span className="font-bold tabular">{d.fare} ETB</span>}
           />
           {d.status === 'cancelled' && d.cancellationFee !== '0.00' && (

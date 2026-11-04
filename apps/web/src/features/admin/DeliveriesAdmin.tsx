@@ -6,6 +6,7 @@ import {
   DELIVERY_STATUSES,
   formatPhone,
   type DeliveryStatus,
+  type FinalFare,
   type PaymentMethod,
 } from '@dp/shared';
 import { api, ApiRequestError } from '../../lib/api.ts';
@@ -53,7 +54,11 @@ interface Detail {
   pickup: { address: string; contactName: string; contactPhone: string; notes: string };
   dropoff: { address: string; contactName: string; contactPhone: string; notes: string };
   parcel: { description: string; size: string };
+  finalFare: FinalFare | null;
+  payerNotifiedAt: string | null;
+  deliveredAt: string | null;
   money: {
+    estimatedFare: string;
     fare: string;
     commissionRate: string;
     commission: string;
@@ -76,11 +81,15 @@ interface Detail {
   payments: Array<{
     id: string;
     kind: string;
-    status: 'due' | 'collected' | 'waived';
+    status: 'due' | 'collected' | 'waived' | 'disputed';
     amount: string;
     method: PaymentMethod | null;
     reference: string | null;
+    payer: 'sender' | 'receiver';
+    verification: 'not_required' | 'pending' | 'verified' | 'rejected' | null;
+    verifiedAt: string | null;
     collectedAt: string | null;
+    note: string | null;
   }>;
   contactAttempts: Array<{ outcome: string; at: string }>;
   audit: Array<{
@@ -354,10 +363,24 @@ function DeliveryDetailAdmin({ id }: { id: string }) {
         </Panel>
         <Panel className="flex flex-col gap-3 p-4">
           <h2 className="font-semibold">Money</h2>
+          <Field k="Payer" v={`${d.payer} (chosen at booking; prefers ${label(d.preferredPaymentMethod)})`} />
           <Field
-            k="Fare"
-            v={`${d.money.fare} ETB · paid by ${d.payer} (prefers ${label(d.preferredPaymentMethod)})`}
+            k={d.finalFare ? 'Final fare' : 'Estimated fare'}
+            v={`${d.money.fare} ETB${d.finalFare ? ` (estimate was ${d.money.estimatedFare} ETB)` : ''}`}
           />
+          {d.finalFare && (
+            <Field
+              k="Actual journey"
+              v={`${d.finalFare.actualDistanceKm.toFixed(2)} km (${d.finalFare.basis === 'gps' ? 'GPS route' : 'booking distance, no GPS'}) · ${d.finalFare.actualDurationMin} min`}
+            />
+          )}
+          {d.finalFare && (
+            <Field
+              k="Price sent to payer"
+              v={d.payerNotifiedAt ? new Date(d.payerNotifiedAt).toLocaleString('en-GB') : 'Not sent (SMS failed or pending)'}
+            />
+          )}
+          {d.deliveredAt && <Field k="Completed" v={new Date(d.deliveredAt).toLocaleString('en-GB')} />}
           <Field
             k="Commission"
             v={`${d.money.commission} ETB (${(Number(d.money.commissionRate) * 100).toFixed(0)}%)`}
@@ -469,20 +492,56 @@ function PaymentRow({ p, onDone }: { p: Detail['payments'][number]; onDone: () =
       onDone();
     },
   });
+  const verify = useMutation({
+    mutationFn: (decision: 'verify' | 'reject') =>
+      api(`/admin/payments/${p.id}/verify`, { method: 'POST', body: { decision } }),
+    onSuccess: () => {
+      toast('Verification recorded.', 'success');
+      onDone();
+    },
+    onError: (err) => toast(err.message, 'danger'),
+  });
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-2 px-3 py-2 text-sm">
       <span>
         <span className="font-medium">{label(p.kind)}</span> · {p.amount} ETB
         {p.method && ` · ${label(p.method)}`}
         {p.reference && ` · ref ${p.reference}`}
+        {` · paid by ${p.payer}`}
+        {p.verification && (
+          <span className="block text-xs text-ink-3">
+            {p.verification === 'not_required'
+              ? 'Cash confirmed by the rider'
+              : p.verification === 'pending'
+                ? 'Rider-confirmed · not independently verified yet'
+                : `Independently ${p.verification}`}
+          </span>
+        )}
+        {p.note && <span className="block text-xs text-ink-3">“{p.note}”</span>}
       </span>
       <span className="flex items-center gap-2">
         <Badge
-          tone={p.status === 'collected' ? 'success' : p.status === 'due' ? 'warning' : 'neutral'}
+          tone={
+            p.status === 'collected'
+              ? 'success'
+              : p.status === 'due' || p.status === 'disputed'
+                ? 'warning'
+                : 'neutral'
+          }
         >
           {p.status}
         </Badge>
-        {p.status === 'due' && (
+        {p.verification === 'pending' && (
+          <>
+            <Button className="h-8 px-2 text-xs" onClick={() => verify.mutate('verify')} loading={verify.isPending}>
+              Verify transfer
+            </Button>
+            <Button variant="ghost" className="h-8 px-2 text-xs" onClick={() => verify.mutate('reject')}>
+              Not found
+            </Button>
+          </>
+        )}
+        {(p.status === 'due' || p.status === 'disputed') && (
           <>
             <Button
               className="h-8 px-2 text-xs"

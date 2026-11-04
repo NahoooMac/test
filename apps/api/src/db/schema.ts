@@ -23,6 +23,9 @@ import {
   CONTACT_OUTCOMES,
   DELIVERY_STATUSES,
   KYC_DOCUMENT_KINDS,
+  type LivenessAction,
+  type LivenessStepRecord,
+  type LivenessThresholds,
   KYC_STATUSES,
   LANGUAGES,
   PARCEL_SIZES,
@@ -433,9 +436,49 @@ export const kycDocuments = pgTable(
     bytes: integer('bytes').notNull(),
     sha256: text('sha256').notNull(),
     capturedAt: tstz('captured_at'),
+    /** Face frames: the liveness session that captured them (documents: null). */
+    livenessSessionId: uuid('liveness_session_id'),
     createdAt: tstz('created_at').notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.riderId, t.kind] })],
+);
+
+export const livenessStatus = pgEnum('liveness_status', [
+  'active',
+  'passed',
+  'failed',
+  'expired',
+  'superseded',
+]);
+
+/**
+ * A guided face-movement check (KYC). The server issues a randomized action sequence with an expiry;
+ * the app reports each completed action (with its frame), in order, within the time limit. Stores
+ * head-pose measurements and timestamps only: no landmarks or face templates.
+ */
+export const kycLivenessSessions = pgTable(
+  'kyc_liveness_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    riderId: uuid('rider_id')
+      .notNull()
+      .references(() => riders.userId, { onDelete: 'cascade' }),
+    status: livenessStatus('status').notNull().default('active'),
+    sequence: jsonb('sequence').$type<LivenessAction[]>().notNull(),
+    steps: jsonb('steps').$type<LivenessStepRecord[]>().notNull().default([]),
+    /** Thresholds in force when the session was issued (kept for review). */
+    thresholds: jsonb('thresholds').$type<LivenessThresholds>().notNull(),
+    client: jsonb('client').$type<{ userAgent: string; model: string; camera?: string | undefined }>(),
+    failedAttempts: integer('failed_attempts').notNull().default(0),
+    expiresAt: tstz('expires_at').notNull(),
+    completedAt: tstz('completed_at'),
+    createdAt: tstz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('kyc_liveness_rider_idx').on(t.riderId, t.createdAt),
+    // One open session per rider: starting a new one supersedes the old.
+    uniqueIndex('kyc_liveness_one_active').on(t.riderId).where(sql`${t.status} = 'active'`),
+  ],
 );
 
 /** Versioned rates. Deliveries reference the rule they were priced with; history is never rewritten. */
@@ -450,6 +493,8 @@ export const pricingRules = pgTable(
     maxDistanceKm: numeric('max_distance_km', { precision: 6, scale: 2, mode: 'number' }),
     commissionRate: numeric('commission_rate', { precision: 5, scale: 4 }).notNull(),
     cancellationFeeAfterArrival: money('cancellation_fee_after_arrival').notNull(),
+    /** Time component of the final fare (journey minutes, pickup to drop-off). 0 = distance only. */
+    perMinute: money('per_minute').notNull().default('0.00'),
     effectiveFrom: tstz('effective_from').notNull().defaultNow(),
     effectiveTo: tstz('effective_to'),
     createdBy: uuid('created_by').references(() => users.id),
@@ -465,7 +510,7 @@ export const pricingRules = pgTable(
     ),
     check(
       'pricing_rules_non_negative',
-      sql`${t.baseFare} >= 0 and ${t.perKm} >= 0 and ${t.minimumFare} > 0 and ${t.cancellationFeeAfterArrival} >= 0`,
+      sql`${t.baseFare} >= 0 and ${t.perKm} >= 0 and ${t.minimumFare} > 0 and ${t.cancellationFeeAfterArrival} >= 0 and ${t.perMinute} >= 0`,
     ),
   ],
 );
@@ -515,6 +560,18 @@ export const deliveries = pgTable(
     commissionAmount: money('commission_amount').notNull(),
     riderEarning: money('rider_earning').notNull(),
     cancellationFee: money('cancellation_fee').notNull().default('0.00'),
+    /**
+     * Final fare, set when the rider ends the delivery at the destination: `fareAmount` (and the
+     * commission split) then hold the final values and `estimatedFare` keeps the booking estimate.
+     */
+    estimatedFare: money('estimated_fare'),
+    actualDistanceKm: numeric('actual_distance_km', { precision: 8, scale: 2, mode: 'number' }),
+    actualDurationMin: integer('actual_duration_min'),
+    /** 'gps' when the recorded route was used for distance, 'estimate' when it was not available. */
+    fareBasis: text('fare_basis'),
+    fareFinalizedAt: tstz('fare_finalized_at'),
+    /** When the selected payer was sent the final price by SMS. */
+    payerNotifiedAt: tstz('payer_notified_at'),
     cancelledBy: actorRole('cancelled_by'),
     cancelReason: text('cancel_reason'),
 
@@ -546,6 +603,7 @@ export const deliveries = pgTable(
     index('deliveries_customer_created_idx').on(t.customerId, t.createdAt),
     index('deliveries_status_created_idx').on(t.status, t.createdAt),
     check('deliveries_fare_positive', sql`${t.fareAmount} > 0`),
+    check('deliveries_fare_basis', sql`${t.fareBasis} is null or ${t.fareBasis} in ('gps', 'estimate')`),
     check(
       'deliveries_split_adds_up',
       sql`${t.commissionAmount} + ${t.riderEarning} = ${t.fareAmount} and ${t.commissionAmount} >= 0`,
@@ -677,7 +735,18 @@ export const contactAttempts = pgTable(
 // ── Phase 4d: payments, rider ledger, admin audit ───────────────────────────
 
 export const paymentKind = pgEnum('payment_kind', ['fare', 'cancellation_fee']);
-export const paymentStatus = pgEnum('payment_status', ['due', 'collected', 'waived']);
+/** `disputed`: the payer says they paid but the rider could not confirm it; an admin resolves it. */
+export const paymentStatus = pgEnum('payment_status', ['due', 'collected', 'waived', 'disputed']);
+/**
+ * Independent check of a payment, separate from the rider's confirmation. Cash the rider confirms
+ * needs none; a Telebirr / CBE Birr transfer stays `pending` until an admin checks the statement.
+ */
+export const paymentVerification = pgEnum('payment_verification', [
+  'not_required',
+  'pending',
+  'verified',
+  'rejected',
+]);
 export const ledgerType = pgEnum('ledger_type', ['commission', 'settlement', 'adjustment']);
 
 /**
@@ -700,6 +769,9 @@ export const payments = pgTable(
     collectedBy: uuid('collected_by').references(() => riders.userId),
     recordedBy: uuid('recorded_by').references(() => users.id),
     collectedAt: tstz('collected_at'),
+    verification: paymentVerification('verification'),
+    verifiedBy: uuid('verified_by').references(() => users.id),
+    verifiedAt: tstz('verified_at'),
     note: text('note'),
     createdAt: tstz('created_at').notNull().defaultNow(),
     updatedAt: tstz('updated_at').notNull().defaultNow(),

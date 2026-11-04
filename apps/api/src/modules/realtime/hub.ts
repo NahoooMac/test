@@ -19,7 +19,8 @@ export type LiveEventType =
   | 'location' // the assigned rider moved
   | 'offer' // a rider's offer appeared, lapsed or was withdrawn
   | 'rider' // a rider's own profile/approval changed
-  | 'ops'; // something on the admin operations board changed
+  | 'ops' // something on the admin operations board changed
+  | 'notice'; // a message for one user (e.g. the final price they need to pay)
 
 export interface LiveEvent {
   type: LiveEventType;

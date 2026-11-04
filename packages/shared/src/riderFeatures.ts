@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { SUB_CITIES, type VehicleType } from './enums.ts';
+import { DEFAULT_LIVENESS, type LivenessThresholds } from './kyc.ts';
 import { haversineKm, isInAddis, type LatLng } from './geo.ts';
 
 // ── Service areas ────────────────────────────────────────────────────────────
@@ -264,6 +265,8 @@ export interface PlatformSettings {
   walletDebtLimit: string;
   matching: MatchingWeights;
   routeRetentionDays: number;
+  /** Rider KYC face-liveness acceptance thresholds. */
+  liveness: LivenessThresholds;
 }
 
 export const DEFAULT_SETTINGS: PlatformSettings = {
@@ -278,6 +281,7 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
     cancelPenalty: 4,
   },
   routeRetentionDays: 180,
+  liveness: DEFAULT_LIVENESS,
 };
 
 const amount = z.string().regex(/^\d{1,6}(\.\d{1,2})?$/, 'Enter an amount like 50 or 50.00.');
@@ -297,6 +301,18 @@ export const settingsUpdateSchema = z.object({
     .partial()
     .optional(),
   routeRetentionDays: z.number().int().min(30).max(3650).optional(),
+  liveness: z
+    .object({
+      turnYawDeg: z.number().min(10).max(45),
+      centerYawDeg: z.number().min(3).max(20),
+      maxPitchDeg: z.number().min(10).max(45),
+      holdMs: z.number().int().min(300).max(3000),
+      minFaceArea: z.number().min(0.01).max(0.5),
+      maxFaceShift: z.number().min(0.05).max(0.6),
+      sessionSeconds: z.number().int().min(60).max(600),
+    })
+    .partial()
+    .optional(),
   reason: z.string().trim().min(3, 'Say why you are changing this.').max(200),
 });
 

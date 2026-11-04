@@ -5,6 +5,8 @@ import { cn, Spinner } from '../ui/index.ts';
 import { loadYmaps, ymapsFailure, type YCoords, type YGeoObject, type YMap, type Ymaps21 } from './yandex.ts';
 import { fetchRouteGeometry } from './route.ts';
 import { animateMarker, headingBetween, stopAnimation } from './animate.ts';
+import type * as Vehicle3dModule from './vehicle3d.ts';
+import { RADAR_CSS, RADAR_HTML } from '../features/rider/FindingRadar.tsx';
 
 export interface MapMarker {
   id: string;
@@ -13,6 +15,45 @@ export interface MapMarker {
   vehicleType?: 'motorcycle' | 'bicycle' | 'scooter';
   /** Rider direction in radians (0 = north, clockwise), e.g. from GPS. */
   heading?: number;
+  /** "Finding jobs" light sweeping round this rider (drawn in the marker, so it stays on them). */
+  radar?: boolean;
+}
+
+// The radar's CSS must be global: Yandex renders marker layouts outside React.
+if (typeof document !== 'undefined' && !document.getElementById('fr-radar-css')) {
+  const style = document.createElement('style');
+  style.id = 'fr-radar-css';
+  style.textContent = RADAR_CSS;
+  document.head.appendChild(style);
+}
+
+/** 3D vehicle renderer, loaded on first use (three.js is only fetched for maps that show riders). */
+type Vehicle3d = typeof Vehicle3dModule;
+let vehicle3d: Vehicle3d | null = null;
+let vehicle3dLoading: Promise<Vehicle3d> | null = null;
+const loadVehicle3d = () =>
+  (vehicle3dLoading ??= import('./vehicle3d.ts').then((m) => (vehicle3d = m)));
+
+/** 16 directions are plenty for a marker, and keep the render cache small. */
+const STEP = Math.PI / 8;
+const VEHICLE_PX = 64;
+
+/** Rider marker: the radar (optional) under the 3D vehicle, or the arrow until 3D has loaded. */
+function riderMarkerHtml(m: MapMarker, heading: number): string {
+  const radar = m.radar ? RADAR_HTML : '';
+  const kind = m.vehicleType;
+  if (kind && vehicle3d) {
+    const q = Math.round(heading / STEP) * STEP;
+    const src = vehicle3d.render3DVehicleIcon(kind, q);
+    const h = VEHICLE_PX / 2;
+    return (
+      `<div style="position:relative">${radar}` +
+      `<div style="position:absolute;left:-${h}px;top:-${h}px;width:${VEHICLE_PX}px;height:${VEHICLE_PX}px;` +
+      `filter:drop-shadow(0 4px 8px rgba(0,0,0,.45))">` +
+      `<img src="${src}" width="${VEHICLE_PX}" height="${VEHICLE_PX}" alt="" style="display:block"/></div></div>`
+    );
+  }
+  return `<div style="position:relative">${radar}${riderHtml(heading)}</div>`;
 }
 
 const toCoords = (p: LatLng): YCoords => [p.lat, p.lng];
@@ -104,7 +145,21 @@ export function MapView({
   const container = useRef<HTMLDivElement>(null);
   const api = useRef<{ ymaps: Ymaps21; map: YMap } | null>(null);
   const overlays = useRef<YGeoObject[]>([]);
-  const riderPlacemarks = useRef<Map<string, { obj: YGeoObject; coords: YCoords; kind: string }>>(new Map());
+  const riderPlacemarks = useRef<
+    Map<string, { obj: YGeoObject; coords: YCoords; kind: string; html: string; heading: number }>
+  >(new Map());
+  const [vehicleReady, setVehicleReady] = useState(() => vehicle3d !== null);
+  const wantsVehicle = markers.some((m) => m.kind === 'rider' && m.vehicleType);
+  useEffect(() => {
+    if (!wantsVehicle || vehicleReady) return;
+    let live = true;
+    void loadVehicle3d()
+      .then(() => live && setVehicleReady(true))
+      .catch(() => undefined); // no WebGL: the arrow stays
+    return () => {
+      live = false;
+    };
+  }, [wantsVehicle, vehicleReady]);
   const routeCoords = useRef<YCoords[]>([]);
   const moveEnd = useRef(onMoveEnd);
   moveEnd.current = onMoveEnd;
@@ -114,6 +169,7 @@ export function MapView({
   // Create the map once.
   useEffect(() => {
     let cancelled = false;
+    const riders = riderPlacemarks.current;
     void loadYmaps().then((ymaps) => {
       if (cancelled || !container.current) return;
       if (!ymaps) {
@@ -151,6 +207,8 @@ export function MapView({
     });
     return () => {
       cancelled = true;
+      for (const id of riders.keys()) stopAnimation(id);
+      riders.clear();
       api.current?.map.destroy();
       api.current = null;
     };
@@ -235,23 +293,31 @@ export function MapView({
         const existing = placemarks.get(m.id);
 
         if (existing) {
-          // Animate to new position if it changed
           const moved = existing.coords[0] !== newCoords[0] || existing.coords[1] !== newCoords[1];
+          // Point the vehicle the way the rider just moved.
+          const heading = moved
+            ? (m.heading ?? headingBetween(existing.coords, newCoords))
+            : (m.heading ?? existing.heading);
+          const html = riderMarkerHtml(m, heading);
+          if (html !== existing.html) {
+            existing.obj.options?.set('iconLayout', a.ymaps.templateLayoutFactory.createClass(html));
+            existing.html = html;
+          }
+          existing.heading = heading;
           if (moved) {
-            // Point the arrow the way the rider just moved.
-            const heading = m.heading ?? headingBetween(existing.coords, newCoords);
-            const newLayout = a.ymaps.templateLayoutFactory.createClass(riderHtml(heading));
-            existing.obj.options?.set('iconLayout', newLayout);
+            // The radar is part of the marker, so it glides along with the rider.
             animateMarker(m.id, existing.obj, existing.coords, newCoords, 1000);
             existing.coords = newCoords;
           }
         } else {
+          const heading = m.heading ?? 0;
+          const html = riderMarkerHtml(m, heading);
           const placemark = new a.ymaps.Placemark(
             newCoords,
             {},
             {
-              iconLayout: a.ymaps.templateLayoutFactory.createClass(riderHtml(m.heading ?? 0)),
-              iconShape: { type: 'Circle', coordinates: [0, 0], radius: 19 },
+              iconLayout: a.ymaps.templateLayoutFactory.createClass(html),
+              iconShape: { type: 'Circle', coordinates: [0, 0], radius: 24 },
             },
           );
           a.map.geoObjects.add(placemark);
@@ -259,6 +325,8 @@ export function MapView({
             obj: placemark,
             coords: newCoords,
             kind: m.vehicleType ?? 'rider',
+            html,
+            heading,
           });
         }
       } else {
@@ -300,16 +368,12 @@ export function MapView({
     }
     return () => {
       cancelled = true;
-      // Clean up rider placemarks and animations
-      for (const [id, entry] of placemarks) {
-        stopAnimation(id);
-        a.map.geoObjects.remove(entry.obj);
-      }
-      placemarks.clear();
+      // Rider placemarks persist between updates (removed above when they leave the map, or with
+      // the map), so a moving rider glides and the radar keeps turning without restarting.
     };
     // overlayKey captures markers/line by value.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, overlayKey, fit]);
+  }, [state, overlayKey, fit, vehicleReady]);
 
   // Recentre when the caller moves the centre (e.g. a search result was chosen).
   const centerKey = `${center.lat},${center.lng},${recenterKey ?? ''}`;

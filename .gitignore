@@ -22,3 +22,6 @@ Thumbs.db
 # Test output
 playwright-report/
 test-results/
+
+# MediaPipe WASM, copied from node_modules by vite.config.ts
+apps/web/public/mediapipe/

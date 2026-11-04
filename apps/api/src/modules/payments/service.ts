@@ -4,7 +4,7 @@
 //  - commission is charged to the rider's ledger once per delivery
 //  - settlements are idempotent by key and cannot exceed what the rider owes (checked in a
 //    transaction that locks the rider row)
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { fromSantim, toSantim, type PaymentMethod } from '@dp/shared';
 import type { Db, Tx } from '../../db/client.ts';
 import { deliveries, payments, riderLedger, riders, users } from '../../db/schema.ts';
@@ -14,10 +14,12 @@ import { AppError, isUniqueViolation } from '../../shared/errors.ts';
 type DeliveryRow = typeof deliveries.$inferSelect;
 export type PaymentRow = typeof payments.$inferSelect;
 
-/** Statuses at which a rider may record the fare (the payer must be present). */
+/**
+ * Statuses at which a rider may record the fare. Never before the destination: the final price
+ * is only known once the rider ends the delivery there (a failed delivery's fare stays due on the
+ * way back).
+ */
 const FARE_RECORDABLE: Record<string, Array<DeliveryRow['payer']>> = {
-  arrived_pickup: ['sender'],
-  picked_up: ['sender', 'receiver'],
   arrived_dropoff: ['sender', 'receiver'],
   returning: ['sender', 'receiver'],
   returned: ['sender', 'receiver'],
@@ -33,49 +35,74 @@ export class PaymentService {
   }
 
   /**
-   * The rider records that the fare was paid to them. Charges the commission to their ledger in
-   * the same transaction. Calling it again (double tap, retry) returns the existing record.
+   * The rider records the payment outcome. The amount is always the delivery's final fare (never
+   * a client value). `collected` is the rider's own confirmation: cash needs nothing more, a
+   * Telebirr / CBE Birr transfer stays `pending` until an admin checks it. `disputed` means the
+   * payer says they paid but the rider cannot confirm it. Calling it again (double tap, retry)
+   * returns the existing record; a dispute can later be upgraded to collected.
    */
   async recordFare(
     d: DeliveryRow,
     riderId: string,
     method: PaymentMethod,
     reference: string | undefined,
+    outcome: 'collected' | 'disputed' = 'collected',
+    note?: string,
   ): Promise<PaymentRow> {
     const allowedPayers = FARE_RECORDABLE[d.status];
-    if (!allowedPayers) {
+    if (!allowedPayers || !allowedPayers.includes(d.payer)) {
       throw new AppError(
         409,
         'PAYMENT_NOT_ALLOWED',
-        'The fare can be recorded once you are with the payer.',
+        'Payment is collected at the destination, once the final price is calculated.',
       );
     }
-    if (!allowedPayers.includes(d.payer)) {
-      throw new AppError(
-        409,
-        'PAYMENT_NOT_ALLOWED',
-        'The receiver pays this fare at the drop-off.',
-      );
+    if (d.status === 'arrived_dropoff' && !d.fareFinalizedAt) {
+      throw new AppError(409, 'FARE_NOT_FINAL', 'The final price has not been calculated yet.');
     }
     const now = this.clock.now();
+    const verification = method === 'cash' && outcome === 'collected' ? 'not_required' : 'pending';
     return this.db.transaction(async (tx) => {
       await tx
         .insert(payments)
         .values({
           deliveryId: d.id,
           kind: 'fare',
-          status: 'collected',
+          status: outcome,
           amount: d.fareAmount,
           method,
           payer: d.payer,
           reference: reference || null,
           collectedBy: riderId,
           recordedBy: riderId,
-          collectedAt: now,
+          collectedAt: outcome === 'collected' ? now : null,
+          verification,
+          note: note ?? null,
           createdAt: now,
           updatedAt: now,
         })
         .onConflictDoNothing({ target: [payments.deliveryId, payments.kind] });
+      if (outcome === 'collected') {
+        // The money arrived after all: a dispute this rider recorded becomes a collection.
+        await tx
+          .update(payments)
+          .set({
+            status: 'collected',
+            method,
+            reference: reference || null,
+            collectedAt: now,
+            verification,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(payments.deliveryId, d.id),
+              eq(payments.kind, 'fare'),
+              eq(payments.status, 'disputed'),
+              eq(payments.collectedBy, riderId),
+            ),
+          );
+      }
       // Commission is not charged here: it comes out of the rider's wallet only when the
       // delivery is completed (see wallet.chargeCommission), never for failed/returned jobs.
       const [row] = await tx
@@ -140,10 +167,38 @@ export class PaymentService {
         note: note ?? null,
         updatedAt: now,
       })
-      .where(and(eq(payments.id, paymentId), eq(payments.status, 'due')))
+      .where(and(eq(payments.id, paymentId), inArray(payments.status, ['due', 'disputed'])))
       .returning();
-    if (!row)
-      throw new AppError(409, 'NOT_DUE', 'Only payments that are still due can be resolved.');
+    if (!row) {
+      throw new AppError(409, 'NOT_DUE', 'Only payments that are due or disputed can be resolved.');
+    }
+    return row;
+  }
+
+  /**
+   * Independent check of a recorded transfer against the Telebirr / CBE Birr statement. Never
+   * done automatically: the rider's "Done" only records their own confirmation.
+   */
+  async verify(paymentId: string, adminId: string, decision: 'verify' | 'reject', note?: string) {
+    const now = this.clock.now();
+    const [row] = await this.db
+      .update(payments)
+      .set({
+        verification: decision === 'verify' ? 'verified' : 'rejected',
+        verifiedBy: adminId,
+        verifiedAt: now,
+        ...(note ? { note } : {}),
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(payments.id, paymentId),
+          eq(payments.verification, 'pending'),
+          inArray(payments.status, ['collected', 'disputed']),
+        ),
+      )
+      .returning();
+    if (!row) throw new AppError(409, 'NOT_PENDING', 'This payment is not waiting for a check.');
     return row;
   }
 

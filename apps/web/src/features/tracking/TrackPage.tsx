@@ -11,6 +11,7 @@ import { Button, ErrorState, Panel, Skeleton, Timeline } from '../../ui/index.ts
 import { LanguageToggle } from '../auth/LanguageToggle.tsx';
 import { isOpen, stageIndex } from '../deliveries/status.ts';
 import { TrackingSheet } from '../deliveries/TrackingSheet.tsx';
+import { FinalPriceCard } from '../deliveries/FinalPriceCard.tsx';
 import { Wordmark } from '../../surfaces/Wordmark.tsx';
 
 /** Public page for the receiver: no sign-in, live updates, no sender/receiver phone numbers. */
@@ -125,6 +126,15 @@ export default function TrackPage() {
         dropoff={{ title: d.dropoff.address, sub: subCityName(d.dropoff.subCity, i18n.language) }}
       />
       <div className="flex flex-col gap-4 px-4 pt-5">
+        {d.payment && (
+          <FinalPriceCard
+            code={d.code}
+            payer={d.payment.payer}
+            finalFare={d.payment.finalFare}
+            status={d.payment.status}
+            delivered={d.status === 'delivered'}
+          />
+        )}
         <section>
           <h2 className="mb-3 text-base font-semibold">{t('delivery.history')}</h2>
           <Panel className="p-4">

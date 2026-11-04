@@ -23,6 +23,7 @@ const moto: PricingRule = {
   maxDistanceKm: null,
   commissionRate: '0.1500',
   cancellationFeeAfterArrival: '40.00',
+  perMinute: '0.00',
 };
 const bike: PricingRule = {
   ...moto,
@@ -34,6 +35,7 @@ const bike: PricingRule = {
   maxDistanceKm: 8,
   commissionRate: '0.1000',
   cancellationFeeAfterArrival: '25.00',
+  perMinute: '0.00',
 };
 
 describe('fare', () => {

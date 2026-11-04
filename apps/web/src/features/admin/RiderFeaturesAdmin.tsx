@@ -578,6 +578,16 @@ const WEIGHTS: Array<[keyof PlatformSettings['matching'], string]> = [
   ['cancelPenalty', 'Per recent rider cancellation'],
 ];
 
+const LIVENESS_FIELDS: Array<[keyof PlatformSettings['liveness'], string, string]> = [
+  ['turnYawDeg', 'Head turn needed (°)', '1'],
+  ['centerYawDeg', 'Max angle for "straight" (°)', '1'],
+  ['maxPitchDeg', 'Max up/down tilt (°)', '1'],
+  ['holdMs', 'Hold each pose (ms)', '50'],
+  ['minFaceArea', 'Min face size (share of frame)', '0.01'],
+  ['maxFaceShift', 'Max face slide while turning', '0.01'],
+  ['sessionSeconds', 'Time limit (s)', '10'],
+];
+
 export function PlatformSettingsPanel() {
   const qc = useQueryClient();
   const toast = useToast();
@@ -594,6 +604,7 @@ export function PlatformSettingsPanel() {
           walletDebtLimit: s!.walletDebtLimit,
           matching: s!.matching,
           routeRetentionDays: s!.routeRetentionDays,
+          liveness: s!.liveness,
           reason,
         },
       }),
@@ -644,6 +655,23 @@ export function PlatformSettingsPanel() {
             step="0.1"
             value={String(s.matching[k])}
             onChange={(e) => set({ matching: { ...s.matching, [k]: Number(e.target.value) } })}
+          />
+        ))}
+      </div>
+      <h3 className="mt-5 font-semibold">Rider face check (KYC liveness)</h3>
+      <p className="text-xs text-ink-3">
+        Calibrate on real phones. A pass only lets the rider submit; an admin still approves.
+      </p>
+      <div className="mt-2 grid gap-3 sm:grid-cols-3">
+        {LIVENESS_FIELDS.map(([k, label, step]) => (
+          <TextField
+            key={k}
+            label={label}
+            type="number"
+            step={step}
+            value={String(s.liveness[k])}
+            onChange={(e) => set({ liveness: { ...s.liveness, [k]: Number(e.target.value) } })}
+            error={fields?.[`liveness.${k}`]}
           />
         ))}
       </div>

@@ -139,6 +139,29 @@ export const deliveryEventSchema = z.object({
 });
 export type DeliveryEvent = z.infer<typeof deliveryEventSchema>;
 
+const moneyStr = z.string().regex(/^-?\d+\.\d{2}$/);
+
+/** The final fare, set when the rider ends the delivery at the destination. */
+export const finalFareSchema = z.object({
+  estimatedFare: moneyStr,
+  fare: moneyStr,
+  actualDistanceKm: z.number(),
+  actualDurationMin: z.number().int(),
+  /** 'gps' = recorded route; 'estimate' = not enough GPS, the booking distance was used. */
+  basis: z.enum(['gps', 'estimate']),
+  finalizedAt: z.string(),
+});
+export type FinalFare = z.infer<typeof finalFareSchema>;
+
+/** A fare payment as the payer and rider see it. */
+export const farePaymentViewSchema = z.object({
+  status: z.enum(['due', 'collected', 'waived', 'disputed']),
+  method: z.enum(PAYMENT_METHODS).nullable(),
+  /** Independent check (mobile transfers); null when nothing is recorded yet. */
+  verification: z.enum(['not_required', 'pending', 'verified', 'rejected']).nullable(),
+});
+export type FarePaymentView = z.infer<typeof farePaymentViewSchema>;
+
 export const deliverySchema = z.object({
   id: z.string().uuid(),
   code: z.string(),
@@ -164,12 +187,9 @@ export const deliverySchema = z.object({
     })
     .nullable(),
   /** How the fare was paid, once the rider recorded it. */
-  farePayment: z
-    .object({
-      status: z.enum(['due', 'collected', 'waived']),
-      method: z.enum(PAYMENT_METHODS).nullable(),
-    })
-    .nullable(),
+  farePayment: farePaymentViewSchema.nullable(),
+  /** Set once the rider reached the destination and the final price was calculated. */
+  finalFare: finalFareSchema.nullable(),
   /** Last known rider position while the job is in progress; null otherwise. */
   riderLocation: z.object({ lat: z.number(), lng: z.number(), at: z.string() }).nullable(),
   createdAt: z.string(),
@@ -215,6 +235,17 @@ export const publicTrackingSchema = z.object({
     })
     .nullable(),
   riderLocation: z.object({ lat: z.number(), lng: z.number(), at: z.string() }).nullable(),
+  /**
+   * Final price for whoever pays, once the rider reached the destination. Shown on this public
+   * page so a receiver without the app can see it from the SMS link. No names or phone numbers.
+   */
+  payment: z
+    .object({
+      payer: z.enum(PAYERS),
+      finalFare: finalFareSchema,
+      status: z.enum(['due', 'collected', 'waived', 'disputed']),
+    })
+    .nullable(),
   timeline: z.array(z.object({ status: z.enum(DELIVERY_STATUSES), at: z.string() })),
   updatedAt: z.string(),
 });

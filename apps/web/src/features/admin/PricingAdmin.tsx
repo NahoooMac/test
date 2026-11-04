@@ -23,6 +23,7 @@ interface Rule {
   maxDistanceKm: number | null;
   commissionRate: string;
   cancellationFeeAfterArrival: string;
+  perMinute: string;
   effectiveFrom: string;
   effectiveTo: string | null;
   current: boolean;
@@ -130,6 +131,7 @@ function RuleForm({ rule }: { rule: Rule }) {
     maxDistanceKm: rule.maxDistanceKm?.toString() ?? '',
     commissionPct: (Number(rule.commissionRate) * 100).toString(),
     cancellationFeeAfterArrival: rule.cancellationFeeAfterArrival,
+    perMinute: rule.perMinute ?? '0.00',
   });
   const save = useMutation({
     mutationFn: () =>
@@ -143,6 +145,7 @@ function RuleForm({ rule }: { rule: Rule }) {
           maxDistanceKm: f.maxDistanceKm ? Number(f.maxDistanceKm) : null,
           commissionRate: Number(f.commissionPct) / 100,
           cancellationFeeAfterArrival: f.cancellationFeeAfterArrival,
+          perMinute: f.perMinute,
         },
       }),
     onSuccess: () => {
@@ -205,6 +208,14 @@ function RuleForm({ rule }: { rule: Rule }) {
           value={f.cancellationFeeAfterArrival}
           onChange={set('cancellationFeeAfterArrival')}
           error={fields?.cancellationFeeAfterArrival}
+        />
+        <TextField
+          label="Per journey minute (ETB)"
+          hint="Final fare: pickup → drop-off time. 0 = distance only"
+          inputMode="decimal"
+          value={f.perMinute}
+          onChange={set('perMinute')}
+          error={fields?.perMinute}
         />
       </div>
       {save.isError && !fields && <Notice tone="danger">{save.error.message}</Notice>}

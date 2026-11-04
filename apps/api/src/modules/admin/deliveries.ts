@@ -1,3 +1,4 @@
+import { finalFareView } from '../deliveries/finalFare.ts';
 import type { FastifyInstance } from 'fastify';
 import { and, asc, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
@@ -171,7 +172,11 @@ export async function adminDeliveryRoutes(
         lng: d.dropoffLng,
       },
       parcel: { description: d.parcelDescription, size: d.parcelSize },
+      finalFare: finalFareView(d),
+      payerNotifiedAt: d.payerNotifiedAt?.toISOString() ?? null,
+      deliveredAt: d.deliveredAt?.toISOString() ?? null,
       money: {
+        estimatedFare: d.estimatedFare ?? d.fareAmount,
         fare: d.fareAmount,
         commissionRate: d.commissionRate,
         commission: d.commissionAmount,
@@ -208,6 +213,9 @@ export async function adminDeliveryRoutes(
         amount: p.amount,
         method: p.method,
         reference: p.reference,
+        payer: p.payer,
+        verification: p.verification,
+        verifiedAt: p.verifiedAt?.toISOString() ?? null,
         collectedAt: p.collectedAt?.toISOString() ?? null,
         note: p.note,
       })),

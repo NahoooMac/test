@@ -12,11 +12,14 @@ import {
   ScanFace,
   ShieldCheck,
 } from 'lucide-react';
-import { KYC_EDITABLE, type KycDocumentKind, type RiderKyc } from '@dp/shared';
+import { KYC_EDITABLE, LIVENESS_KINDS, type KycDocumentKind, type RiderKyc } from '@dp/shared';
 import { api, ApiRequestError } from '../../../lib/api.ts';
 import { Button, EmptyState, Notice, Panel, Skeleton, cn } from '../../../ui/index.ts';
 import { riderHomeKey } from '../hooks.ts';
 import { CAPTURE_SPECS, CameraCapture } from './CameraCapture.tsx';
+import { LivenessCheck } from './LivenessCheck.tsx';
+
+const isFace = (k: KycDocumentKind) => LIVENESS_KINDS.includes(k);
 
 const kycKey = ['rider', 'kyc'] as const;
 
@@ -83,6 +86,19 @@ export function KycFlow() {
   }
   if (!KYC_EDITABLE.includes(k.status)) return null;
 
+  if (active && isFace(active)) {
+    // Face photos only come from the live face check (one session captures all three).
+    return (
+      <LivenessCheck
+        onClose={() => setActive(null)}
+        onDone={() => {
+          void queryClient.invalidateQueries({ queryKey: kycKey });
+          setActive(null);
+        }}
+      />
+    );
+  }
+
   if (active) {
     return (
       <CameraCapture
@@ -112,6 +128,8 @@ export function KycFlow() {
   }
 
   const missing = k.required.filter((kind) => needs(k, kind));
+  // The three face kinds are one checklist row: the live face check.
+  const rows = k.required.filter((kind) => !isFace(kind) || kind === 'face_front');
   const first = missing[0];
 
   return (
@@ -131,10 +149,11 @@ export function KycFlow() {
       )}
 
       <Panel className="divide-y divide-line">
-        {k.required.map((kind) => {
+        {rows.map((kind) => {
           const Icon = ICON[kind];
-          const done = !needs(k, kind);
-          const redo = k.retake.includes(kind) && !done;
+          const face = isFace(kind);
+          const done = face ? !LIVENESS_KINDS.some((f) => needs(k, f)) : !needs(k, kind);
+          const redo = (face ? LIVENESS_KINDS.some((f) => k.retake.includes(f)) : k.retake.includes(kind)) && !done;
           return (
             <button
               key={kind}
@@ -159,7 +178,9 @@ export function KycFlow() {
                 )}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block font-semibold">{t(`kyc.kinds.${kind}.title`)}</span>
+                <span className="block font-semibold">
+                  {face ? 'Live face check' : t(`kyc.kinds.${kind}.title`)}
+                </span>
                 <span className={cn('block text-sm', redo ? 'text-warning' : 'text-ink-3')}>
                   {done ? t('kyc.captured') : redo ? t('kyc.needsRetake') : t('kyc.notYet')}
                 </span>
@@ -196,10 +217,14 @@ export function KycFlow() {
   );
 }
 
-/** A photo still needed: not captured, or captured before the admin asked for a retake. */
+/**
+ * A photo still needed: not captured, captured before the admin asked for a retake, or (faces) not
+ * from a passed live face check.
+ */
 function needs(k: RiderKyc, kind: KycDocumentKind): boolean {
   const cap = k.captured.find((c) => c.kind === kind);
   if (!cap) return true;
+  if (isFace(kind) && !k.livenessPassed) return true;
   return (
     k.status === 'resubmission_required' &&
     k.retake.includes(kind) &&
