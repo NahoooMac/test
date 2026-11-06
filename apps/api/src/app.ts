@@ -32,6 +32,7 @@ import { PayerNotifier } from './modules/deliveries/payerNotice.ts';
 import { riderFeatureRoutes } from './modules/riders/featureRoutes.ts';
 import { ratingRoutes } from './modules/ratings/routes.ts';
 import { adminRiderFeatureRoutes } from './modules/admin/riderFeatures.ts';
+import { adminNotificationRoutes } from './modules/admin/notifications.ts';
 import { purgeOldRoutes } from './modules/history/service.ts';
 import { getSettings } from './modules/platform/settings.ts';
 
@@ -155,6 +156,7 @@ export async function buildApp({
         realtime: hub,
       });
       await api.register(adminRiderFeatureRoutes, { db, clock, auth });
+      await api.register(adminNotificationRoutes, { db, auth });
       await api.register(adminFinanceRoutes, { db, clock, auth, payments, realtime: hub });
       await api.register(adminUserRoutes, {
         db,

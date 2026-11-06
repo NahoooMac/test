@@ -358,6 +358,52 @@ describe('payment outcome and Done', () => {
     expect(res.statusCode).toBe(204);
   });
 
+  it('one-tap Done records the payment by the booking method, once', async () => {
+    const { r, d } = await pickedUp();
+    await ride(r, d.id);
+    const tap = () =>
+      call('POST', `/api/rider/jobs/${d.id}/complete`, r.cookie, {
+        handoverConfirmed: true,
+        paymentReceived: true,
+      });
+    const results = await Promise.all([tap(), tap()]);
+    expect(results.map((x) => x.statusCode)).toEqual([200, 200]);
+    const rows = await t.database.db.select().from(payments).where(eq(payments.deliveryId, d.id));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      status: 'collected',
+      method: 'cash',
+      verification: 'not_required',
+      amount: (await row(d.id)).fareAmount,
+    });
+    expect(await t.database.db.select().from(riderLedger).where(eq(riderLedger.deliveryId, d.id))).toHaveLength(1);
+  });
+
+  it('one-tap Done never verifies a transfer: it waits for an admin, who is notified', async () => {
+    const a = await admin();
+    const { r, d } = await pickedUp('receiver');
+    await t.database.db.update(deliveries).set({ preferredPaymentMethod: 'telebirr' }).where(eq(deliveries.id, d.id));
+    await ride(r, d.id);
+    const res = await call('POST', `/api/rider/jobs/${d.id}/complete`, r.cookie, {
+      handoverConfirmed: true,
+      paymentReceived: true,
+    });
+    expect(res.json().status).toBe('delivered');
+    const [p] = await t.database.db.select().from(payments).where(eq(payments.deliveryId, d.id));
+    expect(p).toMatchObject({ status: 'collected', method: 'telebirr', verification: 'pending' });
+
+    const feed = (await call('GET', '/api/admin/notifications', a.cookie)).json();
+    expect(feed.actionCount).toBe(1);
+    expect(feed.items.find((n: { needsAction: boolean }) => n.needsAction)).toMatchObject({
+      kind: 'payment',
+      link: `/admin/deliveries/${d.id}`,
+    });
+    const titles = feed.items.map((n: { title: string }) => n.title);
+    expect(titles).toContain(`Delivery completed · #${d.code}`);
+    expect(titles).toContain(`Rider reached the destination · #${d.code}`);
+    expect((await call('GET', '/api/admin/notifications', r.cookie)).statusCode).toBe(403);
+  });
+
   it('Done is refused before the destination', async () => {
     const { r, d } = await pickedUp();
     expect((await done(r, d.id)).json().error.code).toBe('INVALID_STEP');

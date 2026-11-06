@@ -38,9 +38,13 @@ export const recordPaymentSchema = z
     }
   });
 
-/** The rider's "Done": payment is recorded and the parcel was handed over. */
+/**
+ * The rider's "Done": the parcel was handed over. `paymentReceived` also confirms the rider got
+ * the money, when no payment was recorded separately (one tap at the destination).
+ */
 export const completeDeliverySchema = z.object({
   handoverConfirmed: z.literal(true, { error: 'Confirm that you handed over the parcel.' }),
+  paymentReceived: z.boolean().default(false),
 });
 
 /** Admin independently checks a recorded Telebirr / CBE Birr payment against the statement. */

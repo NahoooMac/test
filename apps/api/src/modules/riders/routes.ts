@@ -109,8 +109,8 @@ export async function riderRoutes(
   // "Done": payment recorded and parcel handed over. Idempotent (double taps, network retries).
   app.post<IdParams>('/rider/jobs/:id/complete', async (req, reply): Promise<RiderJob> => {
     const { user } = await auth.require(req, reply, 'rider');
-    parseInput(completeDeliverySchema, req.body);
-    return riders.complete(user.id, req.params.id);
+    const { paymentReceived } = parseInput(completeDeliverySchema, req.body);
+    return riders.complete(user.id, req.params.id, paymentReceived);
   });
 
   app.post<IdParams>('/rider/jobs/:id/final-price/resend', async (req, reply) => {

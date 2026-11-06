@@ -36,6 +36,7 @@ import {
   TopupsAdmin,
   WalletsAdmin,
 } from '../../features/admin/RiderFeaturesAdmin.tsx';
+import { NotificationsBell } from '../../features/admin/NotificationsBell.tsx';
 import { LanguageToggle } from '../../features/auth/LanguageToggle.tsx';
 import { CitySkyline, EmptyState, cn } from '../../ui/index.ts';
 import { Wordmark } from '../Wordmark.tsx';
@@ -179,7 +180,9 @@ function AdminShell() {
         </button>
         <Wordmark suffix="Ops" />
         {current && (
-          <span className="ml-auto truncate text-sm font-semibold text-ink-2">{current.label}</span>
+          <span className="ml-auto truncate pr-12 text-sm font-semibold text-ink-2">
+            {current.label}
+          </span>
         )}
       </header>
 
@@ -215,6 +218,8 @@ function AdminShell() {
           {menuOpen && <AdminNav items={items} onClose={() => setMenuOpen(false)} />}
         </div>
       </div>
+
+      <NotificationsBell />
 
       <main className="min-w-0 p-4 lg:p-8">
         <Outlet />

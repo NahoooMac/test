@@ -243,6 +243,25 @@ export interface DeliveryHistoryDetail extends DeliveryHistoryRow {
   rating: { stars: number; comment: string | null } | null;
 }
 
+// ── Admin notifications ──────────────────────────────────────────────────────
+
+export interface AdminNotification {
+  id: string;
+  kind: 'delivery' | 'payment' | 'topup' | 'kyc' | 'rating';
+  title: string;
+  body: string;
+  at: string;
+  /** Where the admin goes to see it. */
+  link: string;
+  /** Waiting for an admin (vs. a plain update). */
+  needsAction: boolean;
+}
+
+export interface AdminNotifications {
+  items: AdminNotification[];
+  actionCount: number;
+}
+
 // ── Settings ─────────────────────────────────────────────────────────────────
 
 export interface MatchingWeights {

@@ -400,11 +400,11 @@ export class RiderService {
   }
 
   /**
-   * The rider's "Done": payment outcome recorded, parcel handed over. Completes the delivery and,
+   * The rider's "Done": payment received, parcel handed over. Completes the delivery and,
    * in the same transaction, deducts the commission from the wallet and awards the +1 point (both
    * once-only by unique index). Safe to repeat: a retry after success returns the finished job.
    */
-  async complete(userId: string, deliveryId: string): Promise<RiderJob> {
+  async complete(userId: string, deliveryId: string, paymentReceived = false): Promise<RiderJob> {
     const d = await this.ownJob(userId, deliveryId, true);
     if (d.status === 'delivered') return this.toJob(d);
     if (d.status !== 'arrived_dropoff') {
@@ -413,7 +413,19 @@ export class RiderService {
     if (!d.fareFinalizedAt) {
       throw new AppError(409, 'FARE_NOT_FINAL', 'The final price has not been calculated yet.');
     }
-    const paid = await this.payments.farePayment(d.id);
+    let paid = await this.payments.farePayment(d.id);
+    if (!paid && paymentReceived) {
+      // One-tap Done: the rider confirms they got the money, by the method chosen at booking. A
+      // transfer recorded this way stays `pending` until an admin checks the statement.
+      paid = await this.payments.recordFare(
+        d,
+        userId,
+        d.preferredPaymentMethod,
+        undefined,
+        'collected',
+        'Confirmed by the rider with Done; method as chosen at booking.',
+      );
+    }
     if (paid?.status !== 'collected' && paid?.status !== 'disputed') {
       throw new AppError(
         409,

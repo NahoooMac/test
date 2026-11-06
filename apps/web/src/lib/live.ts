@@ -39,6 +39,7 @@ function handle(queryClient: QueryClient, type: string, data: Record<string, unk
       void queryClient.invalidateQueries({ queryKey: ['deliveries'] });
       void queryClient.invalidateQueries({ queryKey: ['rider'] });
       void queryClient.invalidateQueries({ queryKey: ['admin', 'ops'] });
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'notifications'] });
       void queryClient.invalidateQueries({ queryKey: ['track'] });
       break;
     }
@@ -73,6 +74,7 @@ function handle(queryClient: QueryClient, type: string, data: Record<string, unk
         void queryClient.invalidateQueries({ queryKey: ['admin', 'ops'] });
         // Rider submissions and decisions: keep the verification queue current.
         void queryClient.invalidateQueries({ queryKey: ['admin', 'kyc'] });
+        void queryClient.invalidateQueries({ queryKey: ['admin', 'notifications'] });
       }
       break;
   }
