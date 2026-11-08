@@ -119,7 +119,12 @@ export default function TrackPage() {
         stage={stage}
         rider={
           d.rider
-            ? { name: d.rider.firstName ?? '—', plate: d.rider.plate, phone: d.rider.phone ?? null }
+            ? {
+                name: d.rider.firstName ?? '—',
+                plate: d.rider.plate,
+                phone: d.rider.phone ?? null,
+                photoUrl: d.rider.photoUrl,
+              }
             : null
         }
         pickup={{ title: d.pickup.address, sub: subCityName(d.pickup.subCity, i18n.language) }}

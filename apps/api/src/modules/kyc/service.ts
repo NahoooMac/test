@@ -8,7 +8,7 @@
 // associated data so a ciphertext can't be swapped onto another rider. Photos are only readable
 // through admin endpoints, are deleted on rejection / retake, and after KYC_RETENTION_DAYS.
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
-import { and, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import {
   KYC_EDITABLE,
   KYC_MAX_IMAGE_BYTES,
@@ -28,8 +28,15 @@ import {
 import type { z } from 'zod';
 import type { adminKycDecisionSchema } from '@dp/shared';
 import type { Config } from '../../config/env.ts';
-import type { Db } from '../../db/client.ts';
-import { adminAuditLog, kycDocuments, kycLivenessSessions, riders, users } from '../../db/schema.ts';
+import type { Db, Tx } from '../../db/client.ts';
+import {
+  adminAuditLog,
+  kycDocuments,
+  kycLivenessSessions,
+  riderPhotos,
+  riders,
+  users,
+} from '../../db/schema.ts';
 import { getSettings } from '../platform/settings.ts';
 import { MIN_SESSION_MS, newSequence, rejectReason, reviewFlags } from './liveness.ts';
 import type { Clock } from '../../shared/clock.ts';
@@ -468,6 +475,42 @@ export class KycService {
     return { data: this.decrypt(doc, `${riderId}:${kind}`), mime: doc.mime };
   }
 
+  /** Copies the rider's approved front-face capture into their profile photo (if it's on file). */
+  private async copyFaceToProfile(tx: Tx, riderId: string, now: Date): Promise<boolean> {
+    const [face] = await tx
+      .select()
+      .from(kycDocuments)
+      .where(and(eq(kycDocuments.riderId, riderId), eq(kycDocuments.kind, 'face_front')));
+    if (!face) return false;
+    const data = this.decrypt(face, `${riderId}:face_front`).toString('base64');
+    const photo = { data, mime: face.mime, bytes: face.bytes, source: 'kyc_face_front', updatedAt: now };
+    await tx
+      .insert(riderPhotos)
+      .values({ riderId, ...photo, createdAt: now })
+      .onConflictDoUpdate({ target: riderPhotos.riderId, set: photo });
+    await tx.update(riders).set({ photoUpdatedAt: now }).where(eq(riders.userId, riderId));
+    return true;
+  }
+
+  /**
+   * One-off for riders approved before profile photos existed: gives every KYC-approved rider who
+   * has no profile photo yet their approved front face, if it is still on file. Safe to re-run.
+   */
+  async backfillProfilePhotos(): Promise<{ filled: string[]; missingFace: string[] }> {
+    const now = this.clock.now();
+    const pending = await this.db
+      .select({ id: riders.userId })
+      .from(riders)
+      .where(and(eq(riders.kycStatus, 'approved'), isNull(riders.photoUpdatedAt)));
+    const filled: string[] = [];
+    const missingFace: string[] = [];
+    for (const { id } of pending) {
+      const ok = await this.db.transaction((tx) => this.copyFaceToProfile(tx, id, now));
+      (ok ? filled : missingFace).push(id);
+    }
+    return { filled, missingFace };
+  }
+
   async decide(
     adminId: string,
     riderId: string,
@@ -484,6 +527,9 @@ export class KycService {
     await this.db.transaction(async (tx) => {
       const base = { kycReviewedAt: now, kycReviewedBy: adminId, updatedAt: now };
       if (input.decision === 'approve') {
+        // The approved front-face capture becomes the rider's profile photo (kept after the KYC
+        // photos themselves are deleted at the end of their retention period).
+        await this.copyFaceToProfile(tx, riderId, now);
         // KYC approval is what lets a rider work: approve the account in the same step.
         const approveAccount =
           current.approvalStatus === 'pending' || current.approvalStatus === 'rejected';

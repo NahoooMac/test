@@ -17,4 +17,5 @@ export { BrandPin, CitySkyline, EthiopiaFlag } from './Illustrations.tsx';
 export { BrandLoader } from './BrandLoader.tsx';
 export { BottomNav, type NavItem } from './BottomNav.tsx';
 export { Segmented } from './Segmented.tsx';
+export { Avatar } from './Avatar.tsx';
 export { ParcelIcon3D } from './ParcelIcon3D.tsx';

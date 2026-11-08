@@ -30,6 +30,7 @@ import { currentRules } from '../pricing/repo.ts';
 import { chargeCommission } from '../wallet/wallet.ts';
 import { assertRiderCanTakeJob } from './eligibility.ts';
 import { claimFromPool } from './pool.ts';
+import { riderPhotoUrl } from './photo.ts';
 import { finalFareView, finalizeFare } from '../deliveries/finalFare.ts';
 import { payerTarget, type PayerNotifier } from '../deliveries/payerNotice.ts';
 import { awardCompletion, ensureStartingPoints, penalizeRiderCancellation } from './points.ts';
@@ -127,6 +128,7 @@ export class RiderService {
       kycStatus: row.r.kycStatus,
       isOnline: row.r.isOnline,
       locationUpdatedAt: row.r.locationUpdatedAt?.toISOString() ?? null,
+      photoUrl: riderPhotoUrl(row.r.userId, row.r.photoUpdatedAt),
       createdAt: row.r.createdAt.toISOString(),
     };
   }

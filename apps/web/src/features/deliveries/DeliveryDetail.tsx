@@ -130,6 +130,7 @@ export function DeliveryDetail() {
                 name: d.rider.name ?? formatPhone(d.rider.phone),
                 plate: d.rider.plate,
                 phone: d.rider.phone,
+                photoUrl: d.rider.photoUrl,
               }
             : null
         }

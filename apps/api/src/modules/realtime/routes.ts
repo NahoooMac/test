@@ -4,6 +4,7 @@ import { ACTIVE_RIDER_STATUSES, type PublicTracking } from '@dp/shared';
 import type { Db } from '../../db/client.ts';
 import { deliveries, deliveryEvents, payments, riders, users } from '../../db/schema.ts';
 import { finalFareView } from '../deliveries/finalFare.ts';
+import { trackPhotoUrl } from '../riders/photo.ts';
 import type { Clock } from '../../shared/clock.ts';
 import { AppError, tooManyRequests } from '../../shared/errors.ts';
 import { consume } from '../../shared/rate-limit.ts';
@@ -70,6 +71,7 @@ async function publicView(db: Db, code: string): Promise<PublicTracking> {
         lat: riders.currentLat,
         lng: riders.currentLng,
         at: riders.locationUpdatedAt,
+        photoAt: riders.photoUpdatedAt,
       },
       riderUser: { phone: users.phoneE164, name: users.fullName },
     })
@@ -117,6 +119,7 @@ async function publicView(db: Db, code: string): Promise<PublicTracking> {
             vehicleType: row.rider.vehicleType,
             plate: row.rider.plate,
             phone: RIDER_CONTACT_VISIBLE.includes(d.status) ? row.riderUser.phone : null,
+            photoUrl: RIDER_CONTACT_VISIBLE.includes(d.status) ? trackPhotoUrl(d.publicCode, row.rider.photoAt) : null,
           }
         : null,
     riderLocation:

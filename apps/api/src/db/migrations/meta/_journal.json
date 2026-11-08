@@ -85,6 +85,13 @@
       "when": 1794139375331,
       "tag": "0011_scooter",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794141795157,
+      "tag": "0012_rider_photos",
+      "breakpoints": true
     }
   ]
 }

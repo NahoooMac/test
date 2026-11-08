@@ -98,7 +98,7 @@ export const en = {
       body: 'For the safety of customers and riders, we check who you are before your first job.',
       documents:
         "Photos of your driver's licence, your vehicle's number plate and your national ID (front and back). Bicycles need only the ID.",
-      face: 'Three photos of your face: looking straight, then turned left, then turned right.',
+      face: 'A short live face check: look straight, then turn your head left and right. Once approved, the front-facing photo becomes your profile picture, shown to the customer and receiver of each delivery you take.',
       review: 'A member of our team compares them and approves you, usually within a day.',
       camera:
         "We need your camera to take these photos live. Your browser will ask for permission — tap Allow. Photos can't be picked from your gallery.",

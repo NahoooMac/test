@@ -184,6 +184,8 @@ export const deliverySchema = z.object({
       phone: z.string(),
       vehicleType: z.enum(VEHICLE_TYPES),
       plate: z.string().nullable(),
+      /** The rider's profile photo, so the customer can recognise them. */
+      photoUrl: z.string().nullable(),
     })
     .nullable(),
   /** How the fare was paid, once the rider recorded it. */
@@ -232,6 +234,8 @@ export const publicTrackingSchema = z.object({
       plate: z.string().nullable(),
       /** Only while the rider is on the way, so the receiver can call. */
       phone: z.string().nullable(),
+      /** Same rule as the phone number: only while the rider is on the job. */
+      photoUrl: z.string().nullable(),
     })
     .nullable(),
   riderLocation: z.object({ lat: z.number(), lng: z.number(), at: z.string() }).nullable(),

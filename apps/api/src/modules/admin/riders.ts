@@ -1,3 +1,4 @@
+import { riderPhotoUrl } from '../riders/photo.ts';
 import type { FastifyInstance } from 'fastify';
 import { and, desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -50,6 +51,7 @@ export async function adminRiderRoutes(
       kycStatus: r.kycStatus,
       rejectionReason: r.rejectionReason,
       isOnline: r.isOnline,
+      photoUrl: riderPhotoUrl(r.userId, r.photoUpdatedAt),
       locationUpdatedAt: r.locationUpdatedAt?.toISOString() ?? null,
       createdAt: r.createdAt.toISOString(),
       reviewedAt: r.reviewedAt?.toISOString() ?? null,

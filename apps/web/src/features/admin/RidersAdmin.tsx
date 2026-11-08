@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { formatPhone, type RiderApprovalStatus, type VehicleType } from '@dp/shared';
 import { api, ApiRequestError } from '../../lib/api.ts';
 import {
+  Avatar,
   Badge,
   Button,
   DataTable,
@@ -25,6 +26,7 @@ interface AdminRider {
   approvalStatus: RiderApprovalStatus;
   rejectionReason: string | null;
   isOnline: boolean;
+  photoUrl: string | null;
   locationUpdatedAt: string | null;
   createdAt: string;
 }
@@ -176,9 +178,12 @@ export function RidersAdmin() {
             key: 'name',
             header: 'Rider',
             cell: (r) => (
-              <div>
-                <p className="font-semibold">{r.fullName ?? '—'}</p>
-                <p className="text-xs text-ink-3 tabular">{formatPhone(r.phone)}</p>
+              <div className="flex items-center gap-3">
+                <Avatar name={r.fullName} src={r.photoUrl} className="size-10 text-xs" />
+                <div className="min-w-0">
+                  <p className="font-semibold">{r.fullName ?? '—'}</p>
+                  <p className="text-xs text-ink-3 tabular">{formatPhone(r.phone)}</p>
+                </div>
               </div>
             ),
           },
@@ -221,12 +226,19 @@ export function RidersAdmin() {
             cell: (r) => (
               <div className="flex justify-end gap-2">
                 {/* Approval happens through the identity review, never directly. */}
-                {(r.approvalStatus === 'pending' || r.approvalStatus === 'rejected') && (
+                {r.approvalStatus === 'pending' || r.approvalStatus === 'rejected' ? (
                   <Link
                     to={`/admin/verification/${r.userId}`}
                     className="inline-flex h-9 items-center rounded-[var(--radius-md)] bg-accent px-3 text-sm font-semibold text-white"
                   >
                     Review identity
+                  </Link>
+                ) : (
+                  <Link
+                    to={`/admin/verification/${r.userId}`}
+                    className="inline-flex h-9 items-center rounded-[var(--radius-md)] border border-line-strong px-3 text-sm font-semibold text-ink hover:bg-surface-2"
+                  >
+                    View KYC
                   </Link>
                 )}
                 {ACTIONS[r.approvalStatus].map((d) => (

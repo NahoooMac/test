@@ -30,6 +30,8 @@ npm run dev
 
 - Web: http://localhost:5173 (customer), `/rider`, `/admin`, and `/design` (design system, dev only)
 - API: http://127.0.0.1:3000/api/health — the web dev server proxies `/api` so cookies stay same-origin.
+  The local-database scripts (`dev:local`, `dev:lan:local`, `dev:demo`) run their API on port 3001, so
+  they can run next to a Neon dev server and each web app always reaches its own database.
 
 Optional: copy `apps/api/.env.example` to `apps/api/.env` to change settings.
 

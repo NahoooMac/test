@@ -272,6 +272,8 @@ export const riders = pgTable(
     currentLat: coord('current_lat'),
     currentLng: coord('current_lng'),
     locationUpdatedAt: tstz('location_updated_at'),
+    /** When the profile photo last changed (set from the approved KYC front face); null = none. */
+    photoUpdatedAt: tstz('photo_updated_at'),
     createdAt: tstz('created_at').notNull().defaultNow(),
     updatedAt: tstz('updated_at').notNull().defaultNow(),
   },
@@ -442,6 +444,24 @@ export const kycDocuments = pgTable(
   },
   (t) => [primaryKey({ columns: [t.riderId, t.kind] })],
 );
+
+/**
+ * Rider profile photo: a copy of the front-face capture the admin approved in KYC, shown to the
+ * customer and receiver of that rider's delivery (and to admins). Kept apart from the KYC
+ * documents, which are deleted after their retention period.
+ */
+export const riderPhotos = pgTable('rider_photos', {
+  riderId: uuid('rider_id')
+    .primaryKey()
+    .references(() => riders.userId, { onDelete: 'cascade' }),
+  /** Base64 JPEG. */
+  data: text('data').notNull(),
+  mime: text('mime').notNull(),
+  bytes: integer('bytes').notNull(),
+  source: text('source').notNull().default('kyc_face_front'),
+  createdAt: tstz('created_at').notNull().defaultNow(),
+  updatedAt: tstz('updated_at').notNull().defaultNow(),
+});
 
 export const livenessStatus = pgEnum('liveness_status', [
   'active',

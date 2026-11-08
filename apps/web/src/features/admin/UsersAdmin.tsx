@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatPhone, type UserRole, type UserStatus } from '@dp/shared';
+import { Link } from 'react-router';
+import { formatPhone, type KycStatus, type UserRole, type UserStatus } from '@dp/shared';
 import { api } from '../../lib/api.ts';
 import { useSession } from '../../lib/session.tsx';
 import {
+  Avatar,
   Badge,
   Button,
   DataTable,
@@ -21,6 +23,9 @@ interface AdminUser {
   fullName: string | null;
   role: UserRole;
   status: UserStatus;
+  /** Set for riders and rider applicants. */
+  kycStatus: KycStatus | null;
+  photoUrl: string | null;
   createdAt: string;
 }
 
@@ -138,14 +143,7 @@ export function UsersAdmin() {
             header: 'Name',
             cell: (u) => (
               <span className="flex items-center gap-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-bold text-accent-soft-ink">
-                  {(u.fullName ?? '?')
-                    .split(/\s+/)
-                    .filter(Boolean)
-                    .slice(0, 2)
-                    .map((p) => p[0]!.toUpperCase())
-                    .join('')}
-                </span>
+                <Avatar name={u.fullName ?? '?'} src={u.photoUrl} className="size-9 text-xs" />
                 <span className="min-w-0">
                   <span className="block truncate font-semibold">
                     {u.fullName ?? <span className="text-ink-3">—</span>}
@@ -192,8 +190,18 @@ export function UsersAdmin() {
             header: 'Actions',
             hideHeader: true,
             align: 'right',
-            cell: (u) =>
-              u.id === me?.id ? (
+            cell: (u) => (
+              <span className="flex items-center justify-end gap-2">
+                {u.kycStatus && (
+                  <Link
+                    to={`/admin/verification/${u.id}`}
+                    title={`Identity: ${u.kycStatus.replace(/_/g, ' ')}`}
+                    className="inline-flex h-9 items-center rounded-[var(--radius-md)] border border-line-strong px-3 text-sm font-semibold text-ink hover:bg-surface-2"
+                  >
+                    View KYC
+                  </Link>
+                )}
+                {u.id === me?.id ? (
                 <span className="text-xs text-ink-3">you</span>
               ) : (
                 <Button
@@ -206,7 +214,9 @@ export function UsersAdmin() {
                 >
                   {u.status === 'active' ? 'Suspend' : 'Reinstate'}
                 </Button>
-              ),
+              )}
+              </span>
+            ),
           },
         ]}
       />

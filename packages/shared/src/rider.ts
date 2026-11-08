@@ -57,6 +57,8 @@ export const riderProfileSchema = z.object({
   kycStatus: z.enum(KYC_STATUSES),
   isOnline: z.boolean(),
   locationUpdatedAt: z.string().nullable(),
+  /** Profile photo (the approved KYC front face); null until approved. */
+  photoUrl: z.string().nullable(),
   createdAt: z.string(),
 });
 export type RiderProfile = z.infer<typeof riderProfileSchema>;

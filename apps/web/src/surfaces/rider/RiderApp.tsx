@@ -15,7 +15,8 @@ import { armRingtone } from '../../lib/ringtone.ts';
 import { SignInFlow } from '../../features/auth/SignInFlow.tsx';
 import { AccountPanel } from '../../features/auth/AccountPanel.tsx';
 import { AuthScaffold } from '../../features/auth/AuthScaffold.tsx';
-import { Badge, BottomNav } from '../../ui/index.ts';
+import { Avatar, Badge, BottomNav } from '../../ui/index.ts';
+import { useRiderHome } from '../../features/rider/hooks.ts';
 
 export default function RiderApp() {
   useTheme();
@@ -71,9 +72,23 @@ function RiderSignIn() {
 
 function RiderAccount() {
   const c = useRiderCopy();
+  const profile = useRiderHome().data?.profile;
   return (
     <>
-      <div className="px-4 pt-6">
+      <div className="flex flex-col gap-3 px-4 pt-6">
+        {profile && (
+          <div className="flex items-center gap-4 rounded-[var(--radius-lg)] border border-line bg-surface p-4 shadow-[var(--shadow-xs)]">
+            <Avatar name={profile.fullName} src={profile.photoUrl} className="size-16 text-lg" />
+            <div className="min-w-0">
+              <p className="truncate text-lg font-bold">{profile.fullName ?? '—'}</p>
+              <p className="text-sm text-ink-3">
+                {profile.photoUrl
+                  ? 'Your profile photo, from your approved verification. Customers see it on your deliveries.'
+                  : 'Your profile photo appears here once your verification is approved.'}
+              </p>
+            </div>
+          </div>
+        )}
         <Link
           to="/rider/areas"
           className="flex items-center gap-3 rounded-[var(--radius-lg)] border border-line bg-surface px-4 py-3.5 font-semibold shadow-[var(--shadow-xs)]"

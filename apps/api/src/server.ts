@@ -7,6 +7,9 @@ import { seedDemoAccounts } from './demo/seed.ts';
 import { DemoBot } from './demo/bot.ts';
 import { systemClock } from './shared/clock.ts';
 
+/** API port of the local-database dev servers (Neon dev servers use API_PORT, default 3000). */
+const LOCAL_DB_API_PORT = 3001;
+
 loadDotEnv();
 // Local production preview serves the web app from the API itself, so the browser's origin is the
 // API's address. A real deployment sets APP_ORIGIN to the public https URL.
@@ -64,5 +67,22 @@ const shutdown = async (signal: string) => {
 process.once('SIGINT', () => void shutdown('SIGINT'));
 process.once('SIGTERM', () => void shutdown('SIGTERM'));
 
-await app.listen({ host: config.HOST, port: config.API_PORT });
-app.log.info(`database: ${database.driver}`);
+// Local-database dev servers use their own API port (unless API_PORT is set), so a Neon dev server
+// and a local one can run side by side and the web app always reaches the right database.
+const port =
+  localDb && !process.argv.includes('--serve-web') && !process.env.API_PORT
+    ? LOCAL_DB_API_PORT
+    : config.API_PORT;
+try {
+  await app.listen({ host: config.HOST, port });
+} catch (err) {
+  if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
+    app.log.fatal(
+      `Port ${port} is already in use: another API (probably another dev server) is running. ` +
+        'Stop it first, or the web app would talk to that server and its database instead.',
+    );
+    process.exit(1);
+  }
+  throw err;
+}
+app.log.info(`database: ${database.driver} · api port ${port}`);

@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:localdb": "vite --mode localdb",
     "dev:lan": "vite --mode lan",
     "dev:lan:https": "vite --mode lan-https",
+    "dev:lan:https:localdb": "vite --mode lan-https-localdb",
     "build": "tsc -p tsconfig.json && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json"

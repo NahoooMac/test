@@ -224,6 +224,7 @@ describe('public tracking', () => {
       vehicleType: 'motorcycle',
       plate: '3-A55501',
       phone: '+251944000430',
+      photoUrl: null, // no approved KYC photo for this test rider
     });
     expect(active.riderLocation).toMatchObject({ lat: 9.015, lng: 38.759 });
 

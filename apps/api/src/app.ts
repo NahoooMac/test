@@ -33,6 +33,7 @@ import { riderFeatureRoutes } from './modules/riders/featureRoutes.ts';
 import { ratingRoutes } from './modules/ratings/routes.ts';
 import { adminRiderFeatureRoutes } from './modules/admin/riderFeatures.ts';
 import { adminNotificationRoutes } from './modules/admin/notifications.ts';
+import { riderPhotoRoutes } from './modules/riders/photo.ts';
 import { purgeOldRoutes } from './modules/history/service.ts';
 import { getSettings } from './modules/platform/settings.ts';
 
@@ -157,6 +158,7 @@ export async function buildApp({
       });
       await api.register(adminRiderFeatureRoutes, { db, clock, auth });
       await api.register(adminNotificationRoutes, { db, auth });
+      await api.register(riderPhotoRoutes, { db, clock, auth });
       await api.register(adminFinanceRoutes, { db, clock, auth, payments, realtime: hub });
       await api.register(adminUserRoutes, {
         db,

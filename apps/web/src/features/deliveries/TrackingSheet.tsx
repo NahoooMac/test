@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Phone } from 'lucide-react';
 import type { VehicleType } from '@dp/shared';
-import { PlateBadge, StatusProgress } from '../../ui/index.ts';
+import { PlateBadge, StatusProgress, Avatar } from '../../ui/index.ts';
 import { VehicleIcon } from './VehicleIcon.tsx';
 import { STAGE_KEYS } from './status.ts';
 
@@ -24,7 +24,7 @@ export function TrackingSheet({
   subtitle: string;
   vehicleType: VehicleType;
   stage: number;
-  rider: { name: string; plate: string | null; phone: string | null } | null;
+  rider: { name: string; plate: string | null; phone: string | null; photoUrl?: string | null } | null;
   pickup: Stop;
   dropoff: Stop;
 }) {
@@ -63,9 +63,13 @@ export function TrackingSheet({
 
       {rider && (
         <div className="relative mt-4 flex items-center gap-3 rounded-[var(--radius-lg)] bg-white/[0.06] p-3 ring-1 ring-white/10">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-2 to-accent text-[15px] font-bold text-white ring-2 ring-white/20">
-            {initials || '•'}
-          </span>
+          {rider.photoUrl ? (
+            <Avatar name={rider.name} src={rider.photoUrl} className="size-12 ring-2 ring-white/20" />
+          ) : (
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-2 to-accent text-[15px] font-bold text-white ring-2 ring-white/20">
+              {initials || '•'}
+            </span>
+          )}
           <div className="min-w-0 flex-1">
             <p className="text-xs text-navy-ink/60">{t('delivery.rider')}</p>
             <p className="truncate text-[15px] font-semibold">{rider.name}</p>

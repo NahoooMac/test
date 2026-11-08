@@ -94,6 +94,8 @@ function splash(appName: string): Plugin {
   };
 }
 
+const apiPort = (mode: string) => (mode.endsWith('localdb') ? 3001 : 3000);
+
 export default defineConfig(({ mode }) => ({
   // `lan-https` adds a self-signed certificate: phones only allow location on https pages.
   plugins: [
@@ -102,18 +104,19 @@ export default defineConfig(({ mode }) => ({
     mediapipeWasm,
     phoneErrors,
     splash(loadEnv(mode, process.cwd(), 'VITE_').VITE_APP_NAME || 'Courier'),
-    ...(mode === 'lan-https' ? [basicSsl()] : []),
+    ...(mode.startsWith('lan-https') ? [basicSsl()] : []),
   ],
   server: {
     port: Number(process.env.PORT) || 5173,
     strictPort: true,
     // `--mode lan`: reachable from phones on the same Wi-Fi at http://<pc-ip>:5173.
-    host: mode === 'lan' || mode === 'lan-https' ? true : undefined,
+    host: mode.startsWith('lan') ? true : undefined,
     // Same-origin in development so the HttpOnly session cookie works exactly as in production.
     // Keep the browser's Host so the API's dev origin check can match LAN addresses.
     proxy: {
-      '/api': { target: 'http://127.0.0.1:3000', changeOrigin: false },
-      '/socket.io': { target: 'http://127.0.0.1:3000', ws: true, changeOrigin: false },
+      // `*-localdb` modes go to the local-database API (port 3001), the others to the Neon one.
+      '/api': { target: `http://127.0.0.1:${apiPort(mode)}`, changeOrigin: false },
+      '/socket.io': { target: `http://127.0.0.1:${apiPort(mode)}`, ws: true, changeOrigin: false },
     },
   },
   build: {

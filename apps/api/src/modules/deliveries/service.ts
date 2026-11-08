@@ -1,3 +1,4 @@
+import { riderPhotoUrl } from '../riders/photo.ts';
 import { finalFareView } from './finalFare.ts';
 import { randomInt } from 'node:crypto';
 import { and, asc, desc, eq } from 'drizzle-orm';
@@ -352,6 +353,7 @@ export class DeliveryService {
           lat: riders.currentLat,
           lng: riders.currentLng,
           locatedAt: riders.locationUpdatedAt,
+          photoAt: riders.photoUpdatedAt,
         },
         riderUser: { phone: riderUsers.phoneE164, name: riderUsers.fullName },
         fare: {
@@ -409,6 +411,7 @@ export class DeliveryService {
               phone: r.riderUser.phone,
               vehicleType: r.rider.vehicleType,
               plate: r.rider.plate,
+              photoUrl: riderPhotoUrl(d.riderId, r.rider.photoAt),
             }
           : null,
       farePayment: r.fare

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { adminUserStatusSchema } from '@dp/shared';
 import type { Db } from '../../db/client.ts';
 import { deliveryOffers, riders, users } from '../../db/schema.ts';
+import { riderPhotoUrl } from '../riders/photo.ts';
 import type { Clock } from '../../shared/clock.ts';
 import { AppError, parseInput } from '../../shared/errors.ts';
 import type { Authenticator } from '../auth/http.ts';
@@ -32,8 +33,9 @@ export async function adminUserRoutes(
     const { q } = parseInput(listQuery, req.query);
     const digits = q?.replace(/\D/g, '') ?? '';
     const rows = await db
-      .select()
+      .select({ u: users, kycStatus: riders.kycStatus, photoAt: riders.photoUpdatedAt })
       .from(users)
+      .leftJoin(riders, eq(riders.userId, users.id))
       .where(
         q
           ? or(
@@ -45,12 +47,15 @@ export async function adminUserRoutes(
       )
       .orderBy(desc(users.createdAt))
       .limit(100);
-    return rows.map((u) => ({
+    return rows.map(({ u, kycStatus, photoAt }) => ({
       id: u.id,
       phone: u.phoneE164,
       fullName: u.fullName,
       role: u.role,
       status: u.status,
+      // Riders (and applicants): identity verification state, for the "View KYC" link.
+      kycStatus: kycStatus ?? null,
+      photoUrl: riderPhotoUrl(u.id, photoAt),
       createdAt: u.createdAt.toISOString(),
     }));
   });
