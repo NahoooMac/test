@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { cn } from '../ui/cn.ts';
 import type { VehicleKind } from './vehicle3d.ts';
 
-/** Illustrated vehicles in public/vehicles (trimmed WebP of design-assets/, right-facing). Scooter has none yet, so it falls back to 3D. */
+/** Illustrated vehicles in public/vehicles (trimmed WebP of design-assets/, right-facing). Scooter has no rider version, so it uses the same picture for both. */
 const PHOTOS: Partial<Record<VehicleKind, { rider: string; bare: string }>> = {
   motorcycle: { rider: '/vehicles/motorcycle-rider.webp', bare: '/vehicles/motorcycle.webp' },
   bicycle: { rider: '/vehicles/bicycle-rider.webp', bare: '/vehicles/bicycle.webp' },
+  scooter: { rider: '/vehicles/scooter.webp', bare: '/vehicles/scooter.webp' },
 };
 
 /** Vehicle picture (optionally with rider). Uses the illustration when there is one, else a 3D render. */

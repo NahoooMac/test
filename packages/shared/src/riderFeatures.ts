@@ -243,6 +243,19 @@ export interface DeliveryHistoryDetail extends DeliveryHistoryRow {
   rating: { stars: number; comment: string | null } | null;
 }
 
+// ── Nearby riders (customer booking map) ─────────────────────────────────────
+
+/** An approximate, anonymous rider position for the booking map (see geo/nearbyRiders.ts). */
+export interface NearbyRider {
+  /** Opaque marker key, stable for about an hour; not the rider's id. */
+  key: string;
+  vehicleType: VehicleType;
+  lat: number;
+  lng: number;
+  /** Direction for the icon (radians, 0 = north). */
+  heading: number;
+}
+
 // ── Admin notifications ──────────────────────────────────────────────────────
 
 export interface AdminNotification {

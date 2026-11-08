@@ -8,6 +8,7 @@ import {
   pointsAdjustSchema,
   toSantim,
   settingsUpdateSchema,
+  VEHICLE_TYPES,
   topupReviewSchema,
   walletAdjustSchema,
   type PlatformSettings,
@@ -33,7 +34,7 @@ const topupQuery = z.object({ status: z.enum(['pending', 'verified', 'rejected']
 const adminHistoryQuery = z.object({
   group: z.enum(['completed', 'unsuccessful']).optional(),
   status: z.string().max(30).optional(),
-  vehicle: z.enum(['motorcycle', 'bicycle']).optional(),
+  vehicle: z.enum(VEHICLE_TYPES).optional(),
   riderId: z.string().uuid().optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),

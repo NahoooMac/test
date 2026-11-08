@@ -205,7 +205,7 @@ export const en = {
     distance: '{{km}} km (estimate)',
     payerTitle: 'Who pays the rider?',
     payers: { sender: 'Sender', receiver: 'Receiver' },
-    payerHints: { sender: 'Pays at pickup', receiver: 'Pays on delivery' },
+    payerHints: { sender: 'You pay when it arrives', receiver: 'Pays when it arrives' },
     methodTitle: 'Payment method',
     methods: { cash: 'Cash', telebirr: 'Telebirr', cbe_birr: 'CBE Birr' },
     directPayment: 'Paid directly to the rider. No card needed.',

@@ -278,7 +278,7 @@ export const riders = pgTable(
   (t) => [
     check(
       'riders_motorcycle_needs_plate',
-      sql`${t.vehicleType} <> 'motorcycle' or ${t.plateNumber} is not null`,
+      sql`${t.vehicleType} not in ('motorcycle', 'scooter') or ${t.plateNumber} is not null`,
     ),
     index('riders_dispatch_idx').on(t.approvalStatus, t.isOnline, t.vehicleType),
     // The gate for every job path (dispatch, online, accept, admin assign) is approval_status =

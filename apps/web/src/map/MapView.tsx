@@ -5,7 +5,7 @@ import { cn, Spinner } from '../ui/index.ts';
 import { loadYmaps, ymapsFailure, type YCoords, type YGeoObject, type YMap, type Ymaps21 } from './yandex.ts';
 import { fetchRouteGeometry } from './route.ts';
 import { animateMarker, headingBetween, stopAnimation } from './animate.ts';
-import type * as Vehicle3dModule from './vehicle3d.ts';
+import type * as TopDownModule from './vehicleTopDown.ts';
 import { RADAR_CSS, RADAR_HTML } from '../features/rider/FindingRadar.tsx';
 
 export interface MapMarker {
@@ -17,6 +17,8 @@ export interface MapMarker {
   heading?: number;
   /** "Finding jobs" light sweeping round this rider (drawn in the marker, so it stays on them). */
   radar?: boolean;
+  /** Background marker (e.g. nearby riders): shown, but never changes the zoom. */
+  ambient?: boolean;
 }
 
 // The radar's CSS must be global: Yandex renders marker layouts outside React.
@@ -27,29 +29,25 @@ if (typeof document !== 'undefined' && !document.getElementById('fr-radar-css'))
   document.head.appendChild(style);
 }
 
-/** 3D vehicle renderer, loaded on first use (three.js is only fetched for maps that show riders). */
-type Vehicle3d = typeof Vehicle3dModule;
-let vehicle3d: Vehicle3d | null = null;
-let vehicle3dLoading: Promise<Vehicle3d> | null = null;
-const loadVehicle3d = () =>
-  (vehicle3dLoading ??= import('./vehicle3d.ts').then((m) => (vehicle3d = m)));
+/** Top-down 3D vehicle icons, loaded on first use (three.js is only fetched for maps with riders). */
+type TopDown = typeof TopDownModule;
+let topDown: TopDown | null = null;
+let topDownLoading: Promise<TopDown> | null = null;
+const loadTopDown = () =>
+  (topDownLoading ??= import('./vehicleTopDown.ts').then((m) => (topDown = m)));
 
-/** 16 directions are plenty for a marker, and keep the render cache small. */
-const STEP = Math.PI / 8;
-const VEHICLE_PX = 64;
+const VEHICLE_PX = 58;
 
 /** Rider marker: the radar (optional) under the 3D vehicle, or the arrow until 3D has loaded. */
 function riderMarkerHtml(m: MapMarker, heading: number): string {
   const radar = m.radar ? RADAR_HTML : '';
   const kind = m.vehicleType;
-  if (kind && vehicle3d) {
-    const q = Math.round(heading / STEP) * STEP;
-    const src = vehicle3d.render3DVehicleIcon(kind, q);
+  const src = kind && topDown ? topDown.renderTopDownIcon(kind, heading) : null;
+  if (src) {
     const h = VEHICLE_PX / 2;
     return (
       `<div style="position:relative">${radar}` +
-      `<div style="position:absolute;left:-${h}px;top:-${h}px;width:${VEHICLE_PX}px;height:${VEHICLE_PX}px;` +
-      `filter:drop-shadow(0 4px 8px rgba(0,0,0,.45))">` +
+      `<div style="position:absolute;left:-${h}px;top:-${h}px;width:${VEHICLE_PX}px;height:${VEHICLE_PX}px">` +
       `<img src="${src}" width="${VEHICLE_PX}" height="${VEHICLE_PX}" alt="" style="display:block"/></div></div>`
     );
   }
@@ -148,12 +146,12 @@ export function MapView({
   const riderPlacemarks = useRef<
     Map<string, { obj: YGeoObject; coords: YCoords; kind: string; html: string; heading: number }>
   >(new Map());
-  const [vehicleReady, setVehicleReady] = useState(() => vehicle3d !== null);
+  const [vehicleReady, setVehicleReady] = useState(() => topDown !== null);
   const wantsVehicle = markers.some((m) => m.kind === 'rider' && m.vehicleType);
   useEffect(() => {
     if (!wantsVehicle || vehicleReady) return;
     let live = true;
-    void loadVehicle3d()
+    void loadTopDown()
       .then(() => live && setVehicleReady(true))
       .catch(() => undefined); // no WebGL: the arrow stays
     return () => {
@@ -226,7 +224,9 @@ export function MapView({
     JSON.stringify(labels);
   // Re-fit only when the stops change, so a live rider update never undoes the user's zoom.
   const fitKey = JSON.stringify(
-    markers.map((m) => (m.kind === 'rider' ? m.id : [m.id, m.point.lat, m.point.lng])),
+    markers
+      .filter((m) => !m.ambient)
+      .map((m) => (m.kind === 'rider' ? m.id : [m.id, m.point.lat, m.point.lng])),
   );
   const fittedKey = useRef<string | null>(null);
   useEffect(() => {
@@ -353,7 +353,7 @@ export function MapView({
         placemarks.delete(id);
       }
     }
-    const fitPoints = [...markers.map((m) => m.point), ...(trail ?? [])];
+    const fitPoints = [...markers.filter((m) => !m.ambient).map((m) => m.point), ...(trail ?? [])];
     if (fit && fitPoints.length > 1 && fittedKey.current !== fitKey) {
       fittedKey.current = fitKey;
       const lats = fitPoints.map((p) => p.lat);

@@ -13,6 +13,7 @@ import {
 import { api } from '../../lib/api.ts';
 import { getPosition, type GeoProblem } from '../../lib/geo.ts';
 import { MapView } from '../../map/MapView.tsx';
+import { useNearbyRiders } from './nearbyRiders.ts';
 import { Button, IconButton, Notice, Skeleton, Spinner, cn } from '../../ui/index.ts';
 
 function useDebounced<T>(value: T, ms: number): T {
@@ -232,6 +233,8 @@ function PinOnMap({
   const [center, setCenter] = useState<LatLng>(start);
   const settled = useDebounced(center, 400);
   const inArea = isInAddis(settled);
+  // Free riders around wherever the pin is (approximate, anonymous dots).
+  const nearby = useNearbyRiders(inArea ? settled : null);
   // Still on the searched landmark (within ~25 m)? Then keep its name instead of a street label.
   const onNamed = !!named && haversineKm(named, settled) < 0.025;
 
@@ -263,6 +266,7 @@ function PinOnMap({
         <MapView
           center={start}
           zoom={16}
+          markers={nearby}
           onMoveEnd={setCenter}
           scrollZoom
           className="absolute inset-0"

@@ -1,16 +1,21 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import type { Place, PlaceSuggestion } from '@dp/shared';
+import type { NearbyRider, Place, PlaceSuggestion } from '@dp/shared';
 import type { Db } from '../../db/client.ts';
 import { GeoProviderError, type GeoProvider } from '../../integrations/maps/index.ts';
 import type { Clock } from '../../shared/clock.ts';
 import { AppError, parseInput, tooManyRequests } from '../../shared/errors.ts';
 import { consume } from '../../shared/rate-limit.ts';
 import type { Authenticator } from '../auth/http.ts';
+import { nearbyRiders } from './nearbyRiders.ts';
 
 const searchQuery = z.object({ q: z.string().trim().min(2).max(100) });
 const reverseQuery = z.object({ lat: z.coerce.number(), lng: z.coerce.number() });
 const resolveQuery = z.object({ ref: z.string().min(3).max(500) });
+const nearQuery = z.object({
+  lat: z.coerce.number().min(-90).max(90),
+  lng: z.coerce.number().min(-180).max(180),
+});
 
 /** Server-side proxy so the geocoder key is never exposed and usage can be capped per user. */
 export async function geoRoutes(
@@ -59,5 +64,14 @@ export async function geoRoutes(
     const point = parseInput(reverseQuery, req.query);
     await guard(user.id);
     return call(() => geo.reverse(point));
+  });
+
+  // Anonymous, approximate positions of free riders near a point (booking map). Customers only.
+  app.get('/geo/nearby-riders', async (req, reply): Promise<NearbyRider[]> => {
+    const { user } = await auth.require(req, reply, 'customer');
+    const at = parseInput(nearQuery, req.query);
+    await guard(user.id);
+    reply.header('Cache-Control', 'no-store');
+    return nearbyRiders(db, at, clock.now());
   });
 }

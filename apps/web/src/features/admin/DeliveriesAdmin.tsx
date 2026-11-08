@@ -31,7 +31,7 @@ interface Row {
   id: string;
   code: string;
   status: DeliveryStatus;
-  vehicleType: 'motorcycle' | 'bicycle';
+  vehicleType: 'motorcycle' | 'bicycle' | 'scooter';
   pickup: string;
   dropoff: string;
   customerName: string | null;
@@ -46,7 +46,7 @@ interface Detail {
   id: string;
   code: string;
   status: DeliveryStatus;
-  vehicleType: 'motorcycle' | 'bicycle';
+  vehicleType: 'motorcycle' | 'bicycle' | 'scooter';
   payer: 'sender' | 'receiver';
   preferredPaymentMethod: PaymentMethod;
   customer: { phone: string; name: string | null };
@@ -570,7 +570,7 @@ function AssignPanel({
   onDone,
 }: {
   id: string;
-  vehicle: 'motorcycle' | 'bicycle';
+  vehicle: 'motorcycle' | 'bicycle' | 'scooter';
   onDone: () => void;
 }) {
   const toast = useToast();

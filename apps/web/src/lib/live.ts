@@ -111,7 +111,7 @@ export interface OpsSnapshot {
     id: string;
     name: string | null;
     phone: string;
-    vehicleType: 'motorcycle' | 'bicycle';
+    vehicleType: 'motorcycle' | 'bicycle' | 'scooter';
     plate: string | null;
     isOnline: boolean;
     lat: number | null;
@@ -123,7 +123,7 @@ export interface OpsSnapshot {
     id: string;
     code: string;
     status: Delivery['status'];
-    vehicleType: 'motorcycle' | 'bicycle';
+    vehicleType: 'motorcycle' | 'bicycle' | 'scooter';
     pickup: { address: string; lat: number; lng: number };
     dropoff: { address: string; lat: number; lng: number };
     fare: string;

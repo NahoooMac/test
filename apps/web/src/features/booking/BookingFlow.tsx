@@ -52,6 +52,7 @@ import {
 import { MotorcycleIcon } from '../deliveries/MotorcycleIcon.tsx';
 import { ScooterIcon } from '../deliveries/ScooterIcon.tsx';
 import { LocationPicker } from './LocationPicker.tsx';
+import { useNearbyRiders } from './nearbyRiders.ts';
 
 interface Contact {
   name: string;
@@ -207,6 +208,8 @@ export function BookingFlow() {
     });
   };
 
+  const nearby = useNearbyRiders(picking ? null : (pickup ?? here));
+
   if (picking) {
     return (
       <LocationPicker
@@ -222,10 +225,12 @@ export function BookingFlow() {
     );
   }
 
-  const markers = [
+  const stops = [
     ...(pickup ? [{ id: 'p', point: pickup, kind: 'pickup' as const }] : []),
     ...(dropoff ? [{ id: 'd', point: dropoff, kind: 'dropoff' as const }] : []),
   ];
+  // Free riders near the pickup (or the customer, before a pickup is set): background markers.
+  const markers = [...nearby, ...stops];
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col">
@@ -250,7 +255,7 @@ export function BookingFlow() {
               markers={markers}
               line={pickup && dropoff ? [pickup, dropoff] : null}
               labels={pickup && dropoff ? { pickup: t('booking.pickup'), dropoff: t('booking.dropoff') } : undefined}
-              fit={markers.length > 1}
+              fit={stops.length > 1}
               center={pickup ?? dropoff ?? here ?? undefined}
               zoom={pickup || here ? 15 : 13}
             />

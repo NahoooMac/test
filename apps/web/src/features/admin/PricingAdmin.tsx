@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { VehicleType } from '@dp/shared';
+import { VEHICLE_TYPES, type VehicleType } from '@dp/shared';
 import { api, ApiRequestError } from '../../lib/api.ts';
 import {
   Badge,
@@ -60,7 +60,7 @@ export function PricingAdmin() {
         <Skeleton className="h-72 w-full" />
       ) : (
         <div className="grid gap-5 lg:grid-cols-2">
-          {(['motorcycle', 'bicycle'] as const).map((v) => {
+          {VEHICLE_TYPES.map((v) => {
             const rule = current(v);
             return rule ? <RuleForm key={`${v}-${rule.id}`} rule={rule} /> : null;
           })}

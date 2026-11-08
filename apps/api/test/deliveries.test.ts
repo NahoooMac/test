@@ -61,7 +61,7 @@ const create = (body = booking(), key = 'key-0000001') =>
   req('POST', '/api/deliveries', body, { 'idempotency-key': key });
 
 describe('quote', () => {
-  it('prices both vehicles from the current rules', async () => {
+  it('prices every vehicle from the current rules', async () => {
     const res = await req('POST', '/api/deliveries/quote', { pickup: MESKEL, dropoff: PIASSA });
     expect(res.statusCode).toBe(200);
     const q = res.json();
@@ -69,6 +69,7 @@ describe('quote', () => {
     expect(q.options.map((o: { vehicleType: string }) => o.vehicleType)).toEqual([
       'motorcycle',
       'bicycle',
+      'scooter',
     ]);
     expect(q.options.every((o: { available: boolean }) => o.available)).toBe(true);
   });

@@ -85,7 +85,8 @@ export function computeFinalFare(
 
 export function unavailableReason(rule: PricingRule, km: number): string | null {
   if (rule.maxDistanceKm != null && km > rule.maxDistanceKm) {
-    return `Bicycle deliveries are limited to ${rule.maxDistanceKm} km.`;
+    const name = rule.vehicleType.charAt(0).toUpperCase() + rule.vehicleType.slice(1);
+    return `${name} deliveries are limited to ${rule.maxDistanceKm} km.`;
   }
   return null;
 }

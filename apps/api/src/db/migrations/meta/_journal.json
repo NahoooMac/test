@@ -78,6 +78,13 @@
       "when": 1793779194698,
       "tag": "0010_payment_flow_liveness",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794139375331,
+      "tag": "0011_scooter",
+      "breakpoints": true
     }
   ]
 }
